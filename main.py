@@ -4,14 +4,28 @@ from controller_mappings import CONT_SWITCH_BTN, CONT_SWITCH_AXIS
 from repeater import UIRepeater
 from state import *
 from dummy import *
+import spidev as SPI
+from lib import LCD_1inch28
+from PIL import Image,ImageDraw
+
+RST = 27
+DC = 25
+BL = 18
+bus = 0 
+device = 0 
+
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((500, 500))
+    screen = pygame.display.set_mode((240, 240))
     pygame.display.set_caption("Joystick example")
     clock = pygame.time.Clock()
     controls = Controls()
     synth = DummySynth()
+    device = LCD_1inch28.LCD_1inch28()
+    device.Init()
+    device.clear()
+    device.bl_DutyCycle(50)
     display = DummyDisplay()
     boot_state = BootState(None, synth, display)
     machine = StateMachine(boot_state)
@@ -27,6 +41,7 @@ def main():
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                synth.stop()
                 done = True
             msg = controls.handle_event(event)
             if msg:
@@ -49,6 +64,9 @@ def main():
         dt = clock.tick(30)
         machine.update(dt)
         machine.render(screen)
+        data = pygame.image.tostring(screen, "RGB")
+        data_pil = Image.frombytes("RGB", screen.get_size(), data)
+        device.ShowImage(data_pil)
         pygame.display.flip()
 
 if __name__ == '__main__':
