@@ -11,12 +11,7 @@ class DummySynth:
         cmd = [
         "fluidsynth",
         "-a", "alsa", 
-        "-o", "audio.periods=8",
-        "-o", "synth.cpu-cores=4",
-        "-o", "synth.reverb.active=False",
-        "-o", "synth.chorus.active=False",
         "-o", "midi.autoconnect=True",
-        "-g", "2.0",
         "files/bootup.mid"
         ]
         self.fs_terminal = subprocess.Popen(

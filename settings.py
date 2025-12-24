@@ -1,6 +1,10 @@
 import pygame
 from enum import Enum
 
+pygame.display.init()
+pygame.joystick.init()
+pygame.font.init()
+
 class ConType(Enum):
     KEYBOARD = 0
     CONT_SWITCH = 1

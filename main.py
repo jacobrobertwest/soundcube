@@ -16,16 +16,15 @@ device = 0
 
 
 def main():
-    pygame.init()
     screen = pygame.display.set_mode((240, 240))
     pygame.display.set_caption("Joystick example")
     clock = pygame.time.Clock()
     controls = Controls()
     synth = DummySynth()
-    device = LCD_1inch28.LCD_1inch28()
-    device.Init()
-    device.clear()
-    device.bl_DutyCycle(50)
+    # ~ device = LCD_1inch28.LCD_1inch28()
+    # ~ device.Init()
+    # ~ device.clear()
+    # ~ device.bl_DutyCycle(50)
     display = DummyDisplay()
     boot_state = BootState(None, synth, display)
     machine = StateMachine(boot_state)
@@ -64,9 +63,9 @@ def main():
         dt = clock.tick(30)
         machine.update(dt)
         machine.render(screen)
-        data = pygame.image.tostring(screen, "RGB")
-        data_pil = Image.frombytes("RGB", screen.get_size(), data)
-        device.ShowImage(data_pil)
+        # data = pygame.image.tostring(screen, "RGB")
+        # data_pil = Image.frombytes("RGB", screen.get_size(), data)
+        # device.ShowImage(data_pil)
         pygame.display.flip()
 
 if __name__ == '__main__':
