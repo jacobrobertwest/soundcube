@@ -39,13 +39,16 @@ class BootState(State):
         self.machine = machine
         self.synth = synth
         self.display = display
-        self.name = 'boot'
+
+        # self.boot_time = 20000
+        self.boot_time = 2000
+
         self.logo = pygame.image.load('files/chp_logo.png').convert_alpha()
         self.logo_rect = self.logo.get_rect(center = (WIDTH / 2, HEIGHT / 2))
         self.text_boot = PRIMARY_FONT.render("Booting...", True, (255, 255, 255))
         self.text_boot_rect = self.text_boot.get_rect(center = (WIDTH / 2, HEIGHT / 2 - 40))
-        self.text_sc = PRIMARY_FONT.render("SOUNDCUBE", True, (255, 255, 255))
-        self.text_sc_rect = self.text_sc.get_rect(center = (WIDTH / 2, HEIGHT / 2 + 40))
+        self.text_sc = GCN_FONT.render("SOUNDCUBE", True, (255, 255, 255))
+        self.text_sc_rect = self.text_sc.get_rect(center = (WIDTH / 2, HEIGHT / 2 + 30))
 
     def enter(self):
         self.display.off()
@@ -56,10 +59,10 @@ class BootState(State):
         self.dt = dt
         if not self.synth_ok:
             self.machine.change(ShutdownState(self.machine, self.synth, self.display))
-        if pygame.time.get_ticks() < 20000:
+        if pygame.time.get_ticks() < self.boot_time:
             pass
         else:
-            self.machine.change(PerformanceState(self.machine, self.synth, self.display))
+            self.machine.change(RunState(self.machine, self.synth, self.display))
 
     def handle_input(self, action):
         pass 
@@ -77,19 +80,36 @@ class BootState(State):
         screen.blit(self.text_boot, self.text_boot_rect)
         screen.blit(self.logo, self.logo_rect)
         screen.blit(self.text_sc, self.text_sc_rect)
+
+    def exit(self):
+        self.synth.post_boot_init()
         
 
 # -------------------------
-# Patch Mode Base (Performance/Rehearsal)
+# Base Run State
 # -------------------------
-class PatchMode(State):
+class RunState(State):
     def __init__(self, machine, synth, display):
         self.machine = machine
         self.synth = synth
         self.display = display
         self.substate = "SELECT"
-        self.current_patch = 0
-        self.num_patches = 24
+        self.img_perf = pygame.image.load('files/perf.png').convert_alpha()
+        self.img_sett = pygame.image.load('files/sett.png').convert_alpha()
+        self.img_tri = pygame.image.load('files/tri.png').convert_alpha()
+        self.img_tri_d = pygame.image.load('files/tri_d.png').convert_alpha()
+        self.imgs_tri = {
+            "up": self.img_tri,
+            "down": pygame.transform.flip(self.img_tri, flip_x=True, flip_y=False),
+            "left": pygame.transform.rotate(self.img_tri, 90),
+            "right": pygame.transform.rotate(self.img_tri, 270)
+        }
+        self.imgs_tri_d = {
+            "up": self.img_tri_d,
+            "down": pygame.transform.flip(self.img_tri_d, flip_x=True, flip_y=False),
+            "left": pygame.transform.rotate(self.img_tri_d, 270),
+            "right": pygame.transform.rotate(self.img_tri_d, 90)
+        }
 
     def handle_input(self, action: ConSignalMessage):
         for btn in action.c_button:
@@ -100,81 +120,101 @@ class PatchMode(State):
 
     def handle_patch_select(self, btn: ConButton):
         if btn == ConButton.LEFT:
-            self.current_patch = (self.current_patch - 1) % self.num_patches
-            self.synth.load_patch(self.current_patch)
+            self.synth.decrement_preset()
         elif btn == ConButton.RIGHT:
-            self.current_patch = (self.current_patch + 1) % self.num_patches
-            self.synth.load_patch(self.current_patch)
+            self.synth.increment_preset()
+        # elif btn == ConButton.Y:
+        #     self.machine.change(ShutdownState(self.machine, self.synth, self.display))
         elif btn == ConButton.A:
+            self.synth.enter_settings_mode()
             self.substate = "SETTINGS"
-        elif btn == ConButton.Y:
-            self.machine.change(ShutdownState(self.machine, self.synth, self.display))
-        elif btn == ConButton.PLUS:
-            self.toggle_mode()
 
     def handle_settings(self, btn: ConButton):
-        if btn == ConButton.B:
+        if btn == ConButton.LEFT:
+            self.synth.decrement_program()
+        elif btn == ConButton.RIGHT:
+            self.synth.increment_program()
+        elif btn == ConButton.X:
+            self.synth.rotate_sf2()
+        elif btn == ConButton.Y:
+            self.synth.rotate_setting()
+        elif btn == ConButton.PLUS:
+            self.synth.save_preset()
+            self.synth.exit_settings_mode()
             self.substate = "SELECT"
-    
-    def toggle_mode(self):
-        """Switch between Performance and Rehearsal."""
-        if isinstance(self, PerformanceState):
-            new_state = RehearsalState(self.machine, self.synth, self.display)
-        elif isinstance(self, RehearsalState):
-            new_state = PerformanceState(self.machine, self.synth, self.display)
-        else:
-            return 
-        
-        new_state.current_patch = self.current_patch
-        self.machine.change(new_state)
+        elif btn == ConButton.B:
+            self.synth.exit_settings_mode()
+            self.substate = "SELECT"
 
+    def prerender(self):
+        self.substate_icon_shown = self.img_perf if self.substate == 'SELECT' else self.img_sett
+        self.preset_name_shown = self.synth.active_preset_name
+        self.sf_icon_shown = self.synth.active_icon
+        self.bank_num_shown = self.synth.active_bank
+        self.inst_num_shown = self.synth.active_inst
+        self.bg_color_shown = (40, 40, 40, 255) if self.substate == 'SELECT' else (60, 60, 60, 255)
+    
     def render(self, screen):
+        self.prerender()
         screen.fill((0, 0, 0))
+        # background
         pygame.draw.circle(
             screen,
-            (40, 40, 40, 255),  # opaque
-            (240 // 2, 240 // 2),
-            120
+            self.bg_color_shown, 
+            (WIDTH / 2, HEIGHT / 2),
+            WIDTH / 2
         )
-        # Show current patch
-        patch_text = PRIMARY_FONT.render(f"Preset No. {self.current_patch + 1}: {self.synth.loaded_preset_name.upper()}", True, (255, 255, 0))
-        screen.blit(patch_text, (20, 20))
-        # Show substate
-        state_text = PRIMARY_FONT.render(f"Mode: {self.substate}", True, (0, 255, 255))
-        screen.blit(state_text, (20, 60))
-        # show state
-        state_name = type(self).__name__.replace("State","").upper()
-        state_text = PRIMARY_FONT.render(f"State: {state_name}", True, (255, 128, 0))
-        screen.blit(state_text, (20, 100))
-        screen.blit(self.synth.loaded_icon, self.synth.loaded_icon.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 60)))
+        pygame.draw.circle(
+            screen,
+            (28, 28, 28, 255),
+            (WIDTH / 2, 20),
+            45
+        )
+        # foreground
+        # show substate icon
+        substate_logo = self.substate_icon_shown
+        substate_rect = substate_logo.get_rect(center = (WIDTH / 2, HEIGHT / 2 - 89))
+        screen.blit(substate_logo, substate_rect)
+        # show preset num (same for both modes)
+        color = PRESET_COLORS[self.synth.loaded_preset_num % len(PRESET_COLORS)]
+        text_preset_num = PRESET_FONT.render(f"{self.synth.loaded_preset_num}", True, color)
+        rect_preset_num = text_preset_num.get_rect(center=(WIDTH / 2, HEIGHT / 2))
+        screen.blit(text_preset_num, rect_preset_num)
+        # show preset name
+        text_preset_name = PRIMARY_FONT.render(f"{self.preset_name_shown}", True, 'white')
+        rect_preset_name = text_preset_name.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 43))
+        screen.blit(text_preset_name, rect_preset_name)
+        # show preset info line 1
+        text_preset_info_1 = SECONDARY_FONT.render(f"BANK {self.bank_num_shown}", True, 'white')
+        rect_preset_info_1 = text_preset_info_1.get_rect(midright=(WIDTH / 2 - 10, HEIGHT / 2 + 75))
+        screen.blit(text_preset_info_1, rect_preset_info_1)
+        # show preset info line 2
+        text_preset_info_2 = SECONDARY_FONT.render(f"PROG {self.inst_num_shown}", True, 'white')
+        rect_preset_info_2 = text_preset_info_2.get_rect(midright=(WIDTH / 2 - 10, HEIGHT / 2 + 95))
+        screen.blit(text_preset_info_2, rect_preset_info_2)
+        # show icon 
+        game_icon = self.sf_icon_shown
+        rect_game_icon = game_icon.get_rect(center = (WIDTH / 2 + 30, HEIGHT / 2 + 85))
+        screen.blit(game_icon, rect_game_icon)
+        left_arrow = self.imgs_tri['left']
+        right_arrow = self.imgs_tri['right']
+        if self.substate == "SELECT":
+            left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2))
+            screen.blit(left_arrow, left_arrow_rect)
+            right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2))
+            screen.blit(right_arrow, right_arrow_rect)
+        elif self.substate == 'SETTINGS':
+            left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2 + 43))
+            screen.blit(left_arrow, left_arrow_rect)
+            right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2 + 43))
+            screen.blit(right_arrow, right_arrow_rect)
+            text_save = PRIMARY_FONT.render("(+) SAVE", True, 'white')
+            rect_save = text_save.get_rect(center=(WIDTH / 2 - 80, HEIGHT / 2))
+            screen.blit(text_save, rect_save)
+            text_sf2_change = SECONDARY_FONT.render("(X)", True, 'white')
+            rect_sf2_change = text_sf2_change.get_rect(center=(181, 196))
+            screen.blit(text_sf2_change, rect_sf2_change)
 
-
-# -------------------------
-# Performance State
-# -------------------------
-class PerformanceState(PatchMode):
-
-    def handle_settings(self, btn: ConButton):
-        if btn == ConButton.UP:
-            self.synth.volume_up()
-        elif btn == ConButton.DOWN:
-            self.synth.volume_down()
-        elif btn == ConButton.B:
-            self.substate = "SELECT"
-
-# -------------------------
-# Rehearsal State
-# -------------------------
-class RehearsalState(PatchMode):
-    def handle_settings(self, btn: ConButton):
-        if btn == ConButton.UP:
-            self.synth.volume_up()
-        elif btn == ConButton.DOWN:
-            self.synth.volume_down()
-        elif btn == ConButton.X:
-            self.synth.save_patch(self.current_patch)
-        elif btn == ConButton.B:
-            self.substate = "SELECT"
 
 # -------------------------
 # Shutdown State

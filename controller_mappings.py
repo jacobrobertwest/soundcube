@@ -23,6 +23,18 @@ CONT_SWITCH_BTN = {
     19 : ""
 }
 
+CONT_KEYBOARD = {
+    79: ConButton.RIGHT,
+    80: ConButton.LEFT,
+    81: ConButton.DOWN,
+    82: ConButton.UP,
+    4: ConButton.A,
+    5: ConButton.B,
+    27: ConButton.X,
+    28: ConButton.Y,
+    46: ConButton.PLUS
+}
+
 CONT_SWITCH_BTN_MAC = {
     0 : ConButton.A,
     1 : ConButton.B,

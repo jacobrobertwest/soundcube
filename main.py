@@ -1,38 +1,32 @@
 from settings import *
-from controls import Controls
-from controller_mappings import CONT_SWITCH_BTN, CONT_SWITCH_AXIS
-from repeater import UIRepeater
+# os.environ["SDL_VIDEODRIVER"] = "dummy" # uncomment in prod
+from controls import *
+from controller_mappings import *
+from repeater import *
 from state import *
-from dummy import *
 from synth import *
-import spidev as SPI
-from lib import LCD_1inch28
-from PIL import Image,ImageDraw
-
-RST = 27
-DC = 25
-BL = 13
-bus = 0 
-device = 0 
-
+# from display import *  #uncomment in prod
+from dummy import *       #comment out in prod
 
 def main():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("SoundCube")
+
+    KEYBOARD_ACTIVE = False
+    # initialize primary companents
     clock = pygame.time.Clock()
-    controls = Controls()
+    controls = Controls(KEYBOARD_ACTIVE)
+    repeater = UIRepeater(200)
     synth = Synth()
-    display = DummyDisplay()
-    device = LCD_1inch28.LCD_1inch28()
-    device.Init()
-    device.clear()
-    device.bl_DutyCycle(50)
+    display = Display()
+
+    # initialize state machine
     boot_state = BootState(None, synth, display)
     machine = StateMachine(boot_state)
     boot_state.machine = machine
     machine.start()
-    repeater = UIRepeater(200)
 
+    # main game loop
     done = False
     while not done:
         messages = []
@@ -47,7 +41,7 @@ def main():
 
         # button presses
         for msg in messages:
-            c_ed = controls.get_event_details(msg, CONT_SWITCH_BTN)
+            c_ed = controls.get_event_details(msg)
             if c_ed:
                 machine.handle_input(c_ed)
 
@@ -58,14 +52,18 @@ def main():
                 c_aa = ConSignalMessage(ConType.CONT_SWITCH, [action])
                 machine.handle_input(c_aa)
 
-        screen.fill((0, 0, 0))
         dt = clock.tick(30)
         machine.update(dt)
         machine.render(screen)
-        data = pygame.image.tostring(screen, "RGB")
-        data_pil = Image.frombytes("RGB", screen.get_size(), data)
-        device.ShowImage(data_pil)
+        
+        # render to the connected LCD display
+        display.render(screen)
+        # pygame.display.set_caption(f"SoundCube {pygame.mouse.get_pos()}")
         pygame.display.flip()
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except:
+        os.system("killall fluidsynth")
+        raise
