@@ -56,7 +56,7 @@ class BootState(State):
         self.dt = dt
         if not self.synth_ok:
             self.machine.change(ShutdownState(self.machine, self.synth, self.display))
-        if pygame.time.get_ticks() < 8000:
+        if pygame.time.get_ticks() < 20000:
             pass
         else:
             self.machine.change(PerformanceState(self.machine, self.synth, self.display))

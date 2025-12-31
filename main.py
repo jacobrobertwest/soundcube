@@ -5,13 +5,13 @@ from repeater import UIRepeater
 from state import *
 from dummy import *
 from synth import *
-# import spidev as SPI
-# from lib import LCD_1inch28
+import spidev as SPI
+from lib import LCD_1inch28
 from PIL import Image,ImageDraw
 
 RST = 27
 DC = 25
-BL = 18
+BL = 13
 bus = 0 
 device = 0 
 
@@ -21,8 +21,12 @@ def main():
     pygame.display.set_caption("SoundCube")
     clock = pygame.time.Clock()
     controls = Controls()
-    synth = DummySynth()
+    synth = Synth()
     display = DummyDisplay()
+    device = LCD_1inch28.LCD_1inch28()
+    device.Init()
+    device.clear()
+    device.bl_DutyCycle(50)
     boot_state = BootState(None, synth, display)
     machine = StateMachine(boot_state)
     boot_state.machine = machine
@@ -58,9 +62,9 @@ def main():
         dt = clock.tick(30)
         machine.update(dt)
         machine.render(screen)
-        # data = pygame.image.tostring(screen, "RGB")
-        # data_pil = Image.frombytes("RGB", screen.get_size(), data)
-        # device.ShowImage(data_pil)
+        data = pygame.image.tostring(screen, "RGB")
+        data_pil = Image.frombytes("RGB", screen.get_size(), data)
+        device.ShowImage(data_pil)
         pygame.display.flip()
 
 if __name__ == '__main__':
