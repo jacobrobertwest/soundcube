@@ -4,8 +4,9 @@ from controller_mappings import CONT_SWITCH_BTN, CONT_SWITCH_AXIS
 from repeater import UIRepeater
 from state import *
 from dummy import *
-import spidev as SPI
-from lib import LCD_1inch28
+from synth import *
+# import spidev as SPI
+# from lib import LCD_1inch28
 from PIL import Image,ImageDraw
 
 RST = 27
@@ -16,22 +17,16 @@ device = 0
 
 
 def main():
-    screen = pygame.display.set_mode((240, 240))
-    pygame.display.set_caption("Joystick example")
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("SoundCube")
     clock = pygame.time.Clock()
     controls = Controls()
     synth = DummySynth()
-    # ~ device = LCD_1inch28.LCD_1inch28()
-    # ~ device.Init()
-    # ~ device.clear()
-    # ~ device.bl_DutyCycle(50)
     display = DummyDisplay()
     boot_state = BootState(None, synth, display)
     machine = StateMachine(boot_state)
     boot_state.machine = machine
     machine.start()
-
-    font = pygame.font.Font(None, 36)
     repeater = UIRepeater(200)
 
     done = False

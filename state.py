@@ -1,6 +1,5 @@
 import pygame
-from settings import ConButton, ConSignalMessage, ConType
-
+from settings import *
 # -------------------------
 # Base State and StateMachine
 # -------------------------
@@ -41,25 +40,44 @@ class BootState(State):
         self.synth = synth
         self.display = display
         self.name = 'boot'
+        self.logo = pygame.image.load('files/chp_logo.png').convert_alpha()
+        self.logo_rect = self.logo.get_rect(center = (WIDTH / 2, HEIGHT / 2))
+        self.text_boot = PRIMARY_FONT.render("Booting...", True, (255, 255, 255))
+        self.text_boot_rect = self.text_boot.get_rect(center = (WIDTH / 2, HEIGHT / 2 - 40))
+        self.text_sc = PRIMARY_FONT.render("SOUNDCUBE", True, (255, 255, 255))
+        self.text_sc_rect = self.text_sc.get_rect(center = (WIDTH / 2, HEIGHT / 2 + 40))
 
     def enter(self):
         self.display.off()
-        ok = self.synth.start()
-        if ok:
-            self.display.on()
-            self.machine.change(PerformanceState(self.machine, self.synth, self.display))
-        else:
+        self.synth_ok = self.synth.start()
+        self.display.on()
+
+    def update(self, dt):
+        self.dt = dt
+        if not self.synth_ok:
             self.machine.change(ShutdownState(self.machine, self.synth, self.display))
+        if pygame.time.get_ticks() < 8000:
+            pass
+        else:
+            self.machine.change(PerformanceState(self.machine, self.synth, self.display))
 
     def handle_input(self, action):
-        pass  # ignore input during boot
+        pass 
 
     def render(self, screen):
-        # Optional boot screen
         screen.fill((0, 0, 0))
-        font = pygame.font.Font(None, 36)
-        text = font.render("Booting...", True, (255, 255, 255))
-        screen.blit(text, (20, 20))
+        pygame.draw.circle(
+            screen,
+            (40, 40, 40, 255),  # opaque
+            (240 // 2, 240 // 2),
+            120
+        )
+        dt = PRIMARY_FONT.render(str(pygame.time.get_ticks()), True, (255,255,255))
+        screen.blit(dt, (10,10))
+        screen.blit(self.text_boot, self.text_boot_rect)
+        screen.blit(self.logo, self.logo_rect)
+        screen.blit(self.text_sc, self.text_sc_rect)
+        
 
 # -------------------------
 # Patch Mode Base (Performance/Rehearsal)
@@ -111,18 +129,25 @@ class PatchMode(State):
         self.machine.change(new_state)
 
     def render(self, screen):
-        screen.fill((30, 30, 30))
-        font = pygame.font.Font(None, 36)
+        screen.fill((0, 0, 0))
+        pygame.draw.circle(
+            screen,
+            (40, 40, 40, 255),  # opaque
+            (240 // 2, 240 // 2),
+            120
+        )
         # Show current patch
-        patch_text = font.render(f"Patch: {self.current_patch + 1}", True, (255, 255, 0))
+        patch_text = PRIMARY_FONT.render(f"Preset No. {self.current_patch + 1}: {self.synth.loaded_preset_name.upper()}", True, (255, 255, 0))
         screen.blit(patch_text, (20, 20))
         # Show substate
-        state_text = font.render(f"Mode: {self.substate}", True, (0, 255, 255))
+        state_text = PRIMARY_FONT.render(f"Mode: {self.substate}", True, (0, 255, 255))
         screen.blit(state_text, (20, 60))
         # show state
-        state_name = type(self).__name__
-        state_text = font.render(f"State: {state_name}", True, (255, 128, 0))
+        state_name = type(self).__name__.replace("State","").upper()
+        state_text = PRIMARY_FONT.render(f"State: {state_name}", True, (255, 128, 0))
         screen.blit(state_text, (20, 100))
+        screen.blit(self.synth.loaded_icon, self.synth.loaded_icon.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 60)))
+
 
 # -------------------------
 # Performance State
@@ -167,7 +192,7 @@ class ShutdownState(State):
         self.display.off()
 
     def handle_input(self, action):
-        pass  # ignore input
+        pass
 
     def update(self, dt):
         if not self.cleaned_up:

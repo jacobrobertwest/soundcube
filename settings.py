@@ -5,6 +5,11 @@ pygame.display.init()
 pygame.joystick.init()
 pygame.font.init()
 
+PRIMARY_FONT_FP = 'files/font/Futura.otf'
+PRIMARY_FONT = pygame.font.Font(PRIMARY_FONT_FP, 18)
+WIDTH = 240
+HEIGHT = 240
+
 class ConType(Enum):
     KEYBOARD = 0
     CONT_SWITCH = 1
