@@ -97,20 +97,13 @@ class RunState(State):
         self.img_perf = pygame.image.load('files/perf.png').convert_alpha()
         self.img_sett = pygame.image.load('files/sett.png').convert_alpha()
         self.img_tri = pygame.image.load('files/tri.png').convert_alpha()
-        self.img_tri_d = pygame.image.load('files/tri_d.png').convert_alpha()
         self.imgs_tri = {
             "up": self.img_tri,
             "down": pygame.transform.flip(self.img_tri, flip_x=True, flip_y=False),
             "left": pygame.transform.rotate(self.img_tri, 90),
             "right": pygame.transform.rotate(self.img_tri, 270)
         }
-        self.imgs_tri_d = {
-            "up": self.img_tri_d,
-            "down": pygame.transform.flip(self.img_tri_d, flip_x=True, flip_y=False),
-            "left": pygame.transform.rotate(self.img_tri_d, 270),
-            "right": pygame.transform.rotate(self.img_tri_d, 90)
-        }
-
+        
     def handle_input(self, action: ConSignalMessage):
         for btn in action.c_button:
             if self.substate == "SELECT":

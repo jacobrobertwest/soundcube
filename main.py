@@ -12,7 +12,7 @@ def main():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("SoundCube")
 
-    KEYBOARD_ACTIVE = False
+    KEYBOARD_ACTIVE = True
     # initialize primary companents
     clock = pygame.time.Clock()
     controls = Controls(KEYBOARD_ACTIVE)
