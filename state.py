@@ -40,8 +40,8 @@ class BootState(State):
         self.synth = synth
         self.display = display
 
-        # self.boot_time = 20000
-        self.boot_time = 2000
+        self.boot_time = 20000
+        # ~ self.boot_time = 12000
 
         self.logo = pygame.image.load('files/chp_logo.png').convert_alpha()
         self.logo_rect = self.logo.get_rect(center = (WIDTH / 2, HEIGHT / 2))
@@ -221,8 +221,8 @@ class ShutdownState(State):
 
     def enter(self):
         self.display.show_message("Shutting down...")
-        self.synth.stop()
         self.display.off()
+        self.synth.stop()
 
     def handle_input(self, action):
         pass
@@ -233,8 +233,4 @@ class ShutdownState(State):
             self.cleaned_up = True
             raise SystemExit
 
-    def render(self, screen):
-        screen.fill((0, 0, 0))
-        font = pygame.font.Font(None, 36)
-        text = font.render("Shutting down...", True, (255, 0, 0))
-        screen.blit(text, (20, 20))
+

@@ -26,7 +26,7 @@ class Synth:
         self.num_presets = len(self.presets)
         self.sf2_files = sorted(glob.glob(os.path.join("files", "sf2", "*.sf2")))
         self.fs_terminal = None
-        # self.run_synth() #uncomment in prod
+        self.run_synth() #uncomment in prod
         return True
     
     def run_synth(self):
@@ -37,7 +37,7 @@ class Synth:
             "-a", "alsa",
             "-o", "midi.autoconnect=True"
         ]
-        cmd.extend(self.sf2_files)
+        cmd.append(self.sf2_files[0])
         cmd.append("files/bootup.mid")
 
         # start the subprocess terminal
@@ -62,6 +62,9 @@ class Synth:
     
     # post boot up 
     def post_boot_init(self):
+        self.send_command(f"load {self.sf2_files[1]}")
+        self.send_command(f"load {self.sf2_files[2]}")
+        self.send_command("fonts")
         self.handle_preset_change(1)
     
     # send command to subprocess terminal running fluidsynth
@@ -101,9 +104,9 @@ class Synth:
         self.enforce_active_elements()
 
     def enforce_active_elements(self):
-        self.active_sf2_meta = self.meta_maps[self.active_sf2]
+        self.active_sf2_meta = self.meta_maps[self.active_sf2 - 1]
         self.active_preset_name = self.active_sf2_meta[(self.active_bank, self.active_inst)]
-        self.active_icon = self.bank_icons[self.active_sf2]
+        self.active_icon = self.bank_icons[self.active_sf2 - 1]
         self.send_command(f"select 0 {self.active_sf2} {self.active_bank} {self.active_inst}")
 
     def increment_preset(self):
@@ -142,10 +145,10 @@ class Synth:
 
     def rotate_sf2(self):
         new_sf2_index = self.active_sf2 + 1
-        if new_sf2_index >= len(self.sf2_files):
-            new_sf2_index = 0
+        if new_sf2_index > len(self.sf2_files):
+            new_sf2_index = 1
         self.active_sf2 = new_sf2_index
-        self.active_sf2_meta = self.meta_maps[self.active_sf2]
+        self.active_sf2_meta = self.meta_maps[self.active_sf2 - 1]
         keys = list(self.active_sf2_meta.keys())
         bank, inst = keys[0]
         self.active_bank = bank

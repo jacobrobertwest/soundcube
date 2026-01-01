@@ -5,14 +5,14 @@ from controller_mappings import *
 from repeater import *
 from state import *
 from synth import *
-# from display import *  #uncomment in prod
-from dummy import *       #comment out in prod
+from display import *  #uncomment in prod
+# ~ from dummy import *       #comment out in prod
 
 def main():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("SoundCube")
 
-    KEYBOARD_ACTIVE = True
+    KEYBOARD_ACTIVE = False
     # initialize primary companents
     clock = pygame.time.Clock()
     controls = Controls(KEYBOARD_ACTIVE)
@@ -33,7 +33,7 @@ def main():
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                synth.stop()
+                machine.change(ShutdownState(machine, synth, display))
                 done = True
             msg = controls.handle_event(event)
             if msg:

@@ -11,7 +11,7 @@ device = 0
 
 class Display(LCD_1inch28.LCD_1inch28):
     def __init__(self):
-        super.__init__()
+        super().__init__()
         self.Init()
         self.clear()
         self.bl_DutyCycle(50)
@@ -21,6 +21,7 @@ class Display(LCD_1inch28.LCD_1inch28):
 
     def off(self):
         print("Display OFF")
+        self.clear()
 
     def render(self, screen):
         data = pygame.image.tostring(screen, "RGB")
