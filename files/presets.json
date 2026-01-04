@@ -3,37 +3,121 @@
     "sf2": 1,
     "bank": 0,
     "inst": 5,
-    "gain": 0.5
+    "gain": 0.5,
+    "fx": {
+      "gain": {
+        "value": 2.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 1,
+        "params": null
+      },
+      "chorus": {
+        "value": 1,
+        "params": null
+      }
+    }
   },
   "2": {
     "sf2": 1,
     "bank": 0,
     "inst": 46,
-    "gain": 0.5
+    "gain": 0.5,
+    "fx": {
+      "gain": {
+        "value": 2.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "3": {
     "sf2": 1,
     "bank": 0,
     "inst": 52,
-    "gain": 0.5
+    "gain": 0.5,
+    "fx": {
+      "gain": {
+        "value": 2.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "4": {
     "sf2": 2,
     "bank": 0,
     "inst": 8,
-    "gain": 0.5
+    "gain": 0.5,
+    "fx": {
+      "gain": {
+        "value": 2.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "5": {
     "sf2": 3,
     "bank": 0,
     "inst": 40,
-    "gain": 0.5
+    "gain": 0.5,
+    "fx": {
+      "gain": {
+        "value": 2.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "6": {
     "sf2": 3,
     "bank": 1,
     "inst": 52,
-    "gain": 0.5
+    "gain": 0.5,
+    "fx": {
+      "gain": {
+        "value": 2.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "7": {
     "sf2": 1,

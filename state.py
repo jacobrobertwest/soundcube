@@ -40,8 +40,8 @@ class BootState(State):
         self.synth = synth
         self.display = display
 
-        self.boot_time = 20000
-        # ~ self.boot_time = 12000
+        # self.boot_time = 20000
+        self.boot_time = 2000
 
         self.logo = pygame.image.load('files/chp_logo.png').convert_alpha()
         self.logo_rect = self.logo.get_rect(center = (WIDTH / 2, HEIGHT / 2))
@@ -127,15 +127,21 @@ class RunState(State):
             self.synth.decrement_program()
         elif btn == ConButton.RIGHT:
             self.synth.increment_program()
+        elif btn == ConButton.UP:
+            self.synth.increment_setting()
+        elif btn == ConButton.DOWN:
+            self.synth.decrement_setting()
+        elif btn == ConButton.A:
+            self.synth.rotate_setting()
+        elif btn == ConButton.B:
+            self.synth.exit_settings_mode()
+            self.substate = "SELECT"
         elif btn == ConButton.X:
             self.synth.rotate_sf2()
         elif btn == ConButton.Y:
-            self.synth.rotate_setting()
+            self.synth.rotate_setting_param()
         elif btn == ConButton.PLUS:
             self.synth.save_preset()
-            self.synth.exit_settings_mode()
-            self.substate = "SELECT"
-        elif btn == ConButton.B:
             self.synth.exit_settings_mode()
             self.substate = "SELECT"
 
@@ -204,10 +210,32 @@ class RunState(State):
             text_save = PRIMARY_FONT.render("(+) SAVE", True, 'white')
             rect_save = text_save.get_rect(center=(WIDTH / 2 - 80, HEIGHT / 2))
             screen.blit(text_save, rect_save)
+            text_settings_swap = SECONDARY_FONT.render("(B) BACK", True, 'white')
+            rect_settings_swap = text_settings_swap.get_rect(center=(55,45))
+            screen.blit(text_settings_swap,rect_settings_swap)
             text_sf2_change = SECONDARY_FONT.render("(X)", True, 'white')
             rect_sf2_change = text_sf2_change.get_rect(center=(181, 196))
             screen.blit(text_sf2_change, rect_sf2_change)
-
+            fx_icon = self.synth.selected_fx_icon
+            rect_fx_icon = fx_icon.get_rect(center=(190,65))
+            screen.blit(fx_icon, rect_fx_icon)
+            current_effect = self.synth.effects[self.synth.selected_effect_index]
+            text_fx_name = SECONDARY_FONT.render(f"{current_effect.upper()}", True, 'white')
+            rect_fx_name = text_fx_name.get_rect(center=(190,93))
+            screen.blit(text_fx_name, rect_fx_name)
+            text_fx_swap = SECONDARY_FONT.render("(A)", True, 'white')
+            rect_fx_swap = text_fx_swap.get_rect(center=(160,65))
+            screen.blit(text_fx_swap, rect_fx_swap)
+            pygame.draw.rect(screen, 'black', (180, 105, 20, 40))
+            current_fx_val = round(self.synth.active_fx_chain[current_effect]['value'],1)
+            current_fx_max = self.synth.fx_dict[current_effect]['rng'][1]
+            fx_perc = round(current_fx_val / current_fx_max, 5)
+            h = 36 * fx_perc
+            y_pos = 143 - (h)
+            pygame.draw.rect(screen, 'darkgreen', (182, y_pos, 16, h))
+            text_fx_val = SECONDARY_FONT.render(f"{current_fx_val}", True, 'white')
+            rect_fx_val = text_fx_val.get_rect(center=(190,125))
+            screen.blit(text_fx_val, rect_fx_val)
 
 # -------------------------
 # Shutdown State

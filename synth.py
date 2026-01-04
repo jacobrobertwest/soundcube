@@ -8,6 +8,7 @@ class Synth:
         self.sf_folder = 'files/sf2'
         self.icon_folder = 'files/sf2_icon'
         self.meta_folder = 'files/sf2_meta'
+        self.fx_icon_folder = 'files/fx_icon'
         self.presets_file = 'files/presets.json'
         self.load_meta_maps()
         self.banks = sorted(
@@ -26,11 +27,20 @@ class Synth:
         self.num_presets = len(self.presets)
         self.sf2_files = sorted(glob.glob(os.path.join("files", "sf2", "*.sf2")))
         self.fs_terminal = None
-        self.run_synth() #uncomment in prod
+        self.fx_dict = FX_LIBRARY
+        self.effects = list(self.fx_dict.keys())
+        self.fx_icon_files =  sorted(
+            f for f in os.listdir(self.fx_icon_folder)
+            if f.endswith(".png")
+        )
+        self.fx_icons = [pygame.image.load(os.path.join(self.fx_icon_folder, f)).convert_alpha() for f in self.fx_icon_files]
+        self.selected_effect_index = 0
+        self.selected_fx_icon = self.fx_icons[self.selected_effect_index]
+        self.selected_fx_meta_map = self.fx_dict[self.effects[self.selected_effect_index]]
+        # self.run_synth() #uncomment in prod
         return True
     
     def run_synth(self):
-
         # Build the command
         cmd = [
             "fluidsynth",
@@ -62,8 +72,8 @@ class Synth:
     
     # post boot up 
     def post_boot_init(self):
-        self.send_command(f"load {self.sf2_files[1]}")
-        self.send_command(f"load {self.sf2_files[2]}")
+        for f in self.sf2_files[1:]:
+            self.send_command(f"load {f}")
         self.send_command("fonts")
         self.handle_preset_change(1)
     
@@ -97,11 +107,31 @@ class Synth:
     # --- PERFORMANCE / SELECT MODE -----
     def handle_preset_change(self, index):
         self.loaded_preset_num = index
-        self.loaded_preset = self.presets[str(self.loaded_preset_num)]
+        self.loaded_preset = deepcopy(self.presets[str(self.loaded_preset_num)])
         self.active_sf2 = self.loaded_preset["sf2"]
         self.active_bank = self.loaded_preset["bank"]
         self.active_inst = self.loaded_preset["inst"]
+        if "fx" not in self.loaded_preset:
+            self.loaded_preset['fx'] = {}
+            for effect in self.fx_dict:
+                self.loaded_preset['fx'][effect] = {}
+                self.loaded_preset['fx'][effect]['value'] = self.fx_dict[effect]['def']
+                self.loaded_preset['fx'][effect]['params'] = None
+                # if self.fx_dict[effect]['params'] is not None:
+                #     self.loaded_preset['fx'][effect]['params'] = {}
+                #     for param in self.fx_dict[effect]['params']:
+                #         self.loaded_preset['fx'][effect]['params'][param] = self.fx_dict[effect]['params'][param]['def']
+            # print(self.loaded_preset['fx'])
+        self.active_fx_chain = deepcopy(self.loaded_preset['fx'])
         self.enforce_active_elements()
+        self.enforce_fx()
+
+    def enforce_fx(self):
+        for effect in self.active_fx_chain:
+            self.send_command(self.fx_dict[effect]['cmd'].format(val=self.active_fx_chain[effect]['value']))
+            # if self.active_fx_chain[effect]['params'] is not None:
+            #     for param in self.active_fx_chain[effect]['params']:
+            #         self.send_command(self.fx_dict[effect]['params'][param]['cmd'].format(val=self.active_fx_chain[effect]['params'][param]))
 
     def enforce_active_elements(self):
         self.active_sf2_meta = self.meta_maps[self.active_sf2 - 1]
@@ -118,6 +148,10 @@ class Synth:
     def decrement_preset(self):
         new_loaded_preset_num = (self.loaded_preset_num - 2) % self.num_presets + 1
         self.handle_preset_change(new_loaded_preset_num)
+
+    def panic_kill(self):
+        # control change | channel 0 | cc123 (kill all notes) | value (not used for this CC, but required)
+        self.send_command("cc 0 123 0")
 
     # --- SETTINGS MODE -----
     def enter_settings_mode(self):
@@ -156,18 +190,43 @@ class Synth:
         self.enforce_active_elements()
 
     def rotate_setting(self):
-        pass
+        new_settings_index = self.selected_effect_index + 1
+        if new_settings_index >= len(self.effects):
+            new_settings_index = 0
+        self.selected_effect_index = new_settings_index
+        self.selected_fx_icon = self.fx_icons[self.selected_effect_index]
+        self.selected_fx_meta_map = self.fx_dict[self.effects[self.selected_effect_index]]
+
+    def increment_setting(self):
+        print("Setting up")
+        new_setting_val = round(self.active_fx_chain[self.effects[self.selected_effect_index]]['value'] + self.selected_fx_meta_map['incr'],1)
+        if new_setting_val > self.selected_fx_meta_map['rng'][1]:
+            new_setting_val = self.selected_fx_meta_map['rng'][1]
+        self.send_command(self.selected_fx_meta_map['cmd'].format(val=new_setting_val))
+        self.active_fx_chain[self.effects[self.selected_effect_index]]['value'] = new_setting_val
+
+    def decrement_setting(self):
+        print("Setting down")
+        new_setting_val = round(self.active_fx_chain[self.effects[self.selected_effect_index]]['value'] - self.selected_fx_meta_map['incr'],1)
+        if new_setting_val < self.selected_fx_meta_map['rng'][0]:
+            new_setting_val = self.selected_fx_meta_map['rng'][0]
+        self.send_command(self.selected_fx_meta_map['cmd'].format(val=new_setting_val))
+        self.active_fx_chain[self.effects[self.selected_effect_index]]['value'] = new_setting_val
 
     def save_preset(self):
         self.presets[str(self.loaded_preset_num)]['sf2'] = self.active_sf2
         self.presets[str(self.loaded_preset_num)]['bank'] = self.active_bank
         self.presets[str(self.loaded_preset_num)]['inst'] = self.active_inst
+        self.presets[str(self.loaded_preset_num)]['fx'] = deepcopy(self.active_fx_chain)
         with open(self.presets_file, "w", encoding="utf-8") as f:
             json.dump(self.presets, f, indent=2, separators=(",", ": "))
         print('Saved preset')
 
     def exit_settings_mode(self):
         print('Exiting settings mode')
+        self.selected_effect_index = 0
+        self.selected_fx_icon = self.fx_icons[self.selected_effect_index]
+        self.selected_fx_meta_map = self.fx_dict[self.effects[self.selected_effect_index]]
         self.handle_preset_change(self.loaded_preset_num)
 
     def stop(self):
@@ -175,9 +234,3 @@ class Synth:
         if self.fs_terminal:
             self.fs_terminal.terminate()
             self.fs_terminal.wait(timeout=2)
-
-    def volume_up(self):
-        print("Volume up")
-
-    def volume_down(self):
-        print("Volume down")

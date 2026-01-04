@@ -3,6 +3,7 @@ from enum import Enum
 import glob
 import os
 import json
+from copy import deepcopy
 
 pygame.display.init()
 pygame.joystick.init()
@@ -25,6 +26,80 @@ PRESET_COLORS = [
     (66, 176, 50),
 ]
 
+FX_LIBRARY = {
+    "gain": { 
+        "def": 2.0,                     # default value
+        "rng": (0.0,5.0),                   # min max value range (if tuple, stop at top/bottom, if list, flip between values)
+        "incr": 0.1,                    # increment value by
+        "cmd": "gain {val}",      # terminal command
+        "params": None,                 # list of fx params
+    },
+    "reverb": {
+        "def": 0,
+        "rng": (0,1),
+        "incr": 1,
+        "cmd": "set synth.reverb.active {val}",
+        "params": {
+                    "room-size": {
+                        "def": 0.5,
+                        "rng": (0.0,1.0),
+                        "incr": 0.05,
+                        "cmd": "set synth.reverb.room-size {val}"
+                    },
+                    "damp": {
+                        "def": 0.5,
+                        "rng": (0.0,1.0),
+                        "incr": 0.05,
+                        "cmd": "set synth.reverb.damp {val}"
+                    },
+                    "width": {
+                        "def": 0.5,
+                        "rng": (0.0,1.0),
+                        "incr": 0.05,
+                        "cmd": "set synth.reverb.width {val}"
+                    },
+                    "level": {
+                        "def": 0.5,
+                        "rng": (0.0,1.0),
+                        "incr": 0.05,
+                        "cmd": "set synth.reverb.level {val}"
+                    }
+                }
+    },
+    "chorus": {
+        "def": 0,
+        "rng": (0,1),
+        "incr": 1,
+        "cmd": "set synth.chorus.active {val}",
+        "params": {
+                    "nr": {
+                        "def": 2,
+                        "rng": (0,20),
+                        "incr": 1,
+                        "cmd": "set synth.chorus.nr {val}"
+                    },
+                    "level": {
+                        "def": 1.5,
+                        "rng": (0.0,10.0),
+                        "incr": 0.5,
+                        "cmd": "set synth.chorus.level {val}"
+                    },
+                    "speed": {
+                        "def": 1.5,
+                        "rng": (0.1,5.0),
+                        "incr": 0.035,
+                        "cmd": "set synth.chorus.speed {val}"
+                    },
+                    "depth": {
+                        "def": 3,
+                        "rng": (0,256),
+                        "incr": 0.05,
+                        "cmd": "set synth.chorus.depth {val}"
+                    }
+                }
+    }
+}
+
 # screen width and height (pixels)
 WIDTH = 240
 HEIGHT = 240
@@ -43,6 +118,9 @@ class ConButton(Enum):
     X = 6
     Y = 7
     PLUS = 8
+    MINUS = 9
+    Z = 10
+    
 
 class ConEventMessage:
     def __init__(self, button: bool = False, key: bool = False, scancode: int = None):
