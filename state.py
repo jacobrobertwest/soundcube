@@ -40,8 +40,8 @@ class BootState(State):
         self.synth = synth
         self.display = display
 
-        # self.boot_time = 20000
-        self.boot_time = 2000
+        self.boot_time = 20000
+        # self.boot_time = 2000
 
         self.logo = pygame.image.load('files/chp_logo.png').convert_alpha()
         self.logo_rect = self.logo.get_rect(center = (WIDTH / 2, HEIGHT / 2))
@@ -121,6 +121,8 @@ class RunState(State):
         elif btn == ConButton.A:
             self.synth.enter_settings_mode()
             self.substate = "SETTINGS"
+        elif btn == ConButton.Z:
+            self.synth.panic_kill()
 
     def handle_settings(self, btn: ConButton):
         if btn == ConButton.LEFT:
@@ -144,6 +146,8 @@ class RunState(State):
             self.synth.save_preset()
             self.synth.exit_settings_mode()
             self.substate = "SELECT"
+        elif btn == ConButton.Z:
+            self.synth.panic_kill()
 
     def prerender(self):
         self.substate_icon_shown = self.img_perf if self.substate == 'SELECT' else self.img_sett

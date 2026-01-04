@@ -37,7 +37,7 @@ class Controls:
             type = ConType.CONT_SWITCH
             btn_mapping = CONT_SWITCH_BTN
             for btn in range(self.num_buttons):
-                ## print(f"{btn} : {self.joystick.get_button(btn)}")
+                print(f"{btn} : {self.joystick.get_button(btn)}")
                 if self.joystick.get_button(btn) == 1:
                     if btn_mapping[btn] != "":
                         active.append(btn_mapping[btn])
