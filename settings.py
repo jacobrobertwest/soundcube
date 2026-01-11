@@ -123,15 +123,19 @@ class ConButton(Enum):
     
 
 class ConEventMessage:
-    def __init__(self, button: bool = False, key: bool = False, scancode: int = None):
+    def __init__(self, button: bool = False, key: bool = False, scancode: int = None, release=False):
         self.has_button = button
         self.has_keypress = key
         self.scancode = scancode
+        self.release = release
+        self.pressed = not release
 
 class ConSignalMessage:
-    def __init__(self, c_type: ConType, c_buttons):
+    def __init__(self, c_type: ConType, c_buttons, release: bool = False):
         self.c_type = c_type
         self.c_button = c_buttons
+        self.release = release
+        self.pressed = not release
 
     def to_string(self):
-        print(f"[CONT MSG: {self.c_type}, {self.c_button}]")
+        print(f"[CONT MSG: ({"PRESSED" if not self.release else "RELEASED"}) {self.c_type}, {self.c_button}]")

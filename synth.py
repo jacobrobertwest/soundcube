@@ -37,7 +37,7 @@ class Synth:
         self.selected_effect_index = 0
         self.selected_fx_icon = self.fx_icons[self.selected_effect_index]
         self.selected_fx_meta_map = self.fx_dict[self.effects[self.selected_effect_index]]
-        self.run_synth() #uncomment in prod
+        # self.run_synth() #uncomment in prod
         return True
     
     def run_synth(self):

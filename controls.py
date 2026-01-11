@@ -24,9 +24,15 @@ class Controls:
 
         if event.type == pygame.JOYBUTTONDOWN:
             return ConEventMessage(button=True)
+        if event.type == pygame.JOYBUTTONUP:
+            return ConEventMessage(button=True, release=True)
 
-        if self.keyboard_active and event.type == pygame.KEYDOWN:
-            return ConEventMessage(key=True, scancode=event.scancode)
+        if self.keyboard_active:
+            if event.type == pygame.KEYDOWN:
+                # print(event.scancode)
+                return ConEventMessage(key=True, scancode=event.scancode)
+            if event.type == pygame.KEYUP:
+                return ConEventMessage(key=True, scancode=event.scancode, release=True)
         
         return None
 
@@ -46,7 +52,7 @@ class Controls:
             btn_mapping = CONT_KEYBOARD
             if btn_mapping.get(con_event_msg.scancode):
                 active.append(btn_mapping.get(con_event_msg.scancode))
-        return ConSignalMessage(type, active) if len(active) > 0 else None
+        return ConSignalMessage(type, active, con_event_msg.release) if len(active) > 0 else None
 
     def get_axis_state(self, axis_mapping, threshold=0.95):
         if not self.joystick:

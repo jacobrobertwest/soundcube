@@ -32,6 +32,7 @@ CONT_KEYBOARD = {
     5: ConButton.B,
     27: ConButton.X,
     28: ConButton.Y,
+    45: ConButton.MINUS,
     46: ConButton.PLUS
 }
 

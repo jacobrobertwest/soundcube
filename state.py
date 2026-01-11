@@ -103,51 +103,75 @@ class RunState(State):
             "left": pygame.transform.rotate(self.img_tri, 90),
             "right": pygame.transform.rotate(self.img_tri, 270)
         }
+        self.minus_pressed_at = None
         
     def handle_input(self, action: ConSignalMessage):
         for btn in action.c_button:
             if self.substate == "SELECT":
-                self.handle_patch_select(btn)
+                self.handle_patch_select(btn, action.pressed)
             elif self.substate == "SETTINGS":
-                self.handle_settings(btn)
+                self.handle_settings(btn, action.pressed)
 
-    def handle_patch_select(self, btn: ConButton):
-        if btn == ConButton.LEFT:
-            self.synth.decrement_preset()
-        elif btn == ConButton.RIGHT:
-            self.synth.increment_preset()
-        # elif btn == ConButton.Y:
-        #     self.machine.change(ShutdownState(self.machine, self.synth, self.display))
-        elif btn == ConButton.A:
-            self.synth.enter_settings_mode()
-            self.substate = "SETTINGS"
-        elif btn == ConButton.Z:
-            self.synth.panic_kill()
+    def handle_patch_select(self, btn: ConButton, pressed):
+        if pressed:
+            if btn == ConButton.LEFT:
+                self.synth.decrement_preset()
+            elif btn == ConButton.RIGHT:
+                self.synth.increment_preset()
+            # elif btn == ConButton.Y:
+            #     self.machine.change(ShutdownState(self.machine, self.synth, self.display))
+            elif btn == ConButton.A:
+                self.synth.enter_settings_mode()
+                self.substate = "SETTINGS"
+            elif btn == ConButton.Z:
+                self.synth.panic_kill()
+            elif btn == ConButton.MINUS:
+                self.initiate_potential_shutdown()
+        else:
+            if btn == ConButton.MINUS:
+                self.handle_shutdown()
 
-    def handle_settings(self, btn: ConButton):
-        if btn == ConButton.LEFT:
-            self.synth.decrement_program()
-        elif btn == ConButton.RIGHT:
-            self.synth.increment_program()
-        elif btn == ConButton.UP:
-            self.synth.increment_setting()
-        elif btn == ConButton.DOWN:
-            self.synth.decrement_setting()
-        elif btn == ConButton.A:
-            self.synth.rotate_setting()
-        elif btn == ConButton.B:
-            self.synth.exit_settings_mode()
-            self.substate = "SELECT"
-        elif btn == ConButton.X:
-            self.synth.rotate_sf2()
-        elif btn == ConButton.Y:
-            self.synth.rotate_setting_param()
-        elif btn == ConButton.PLUS:
-            self.synth.save_preset()
-            self.synth.exit_settings_mode()
-            self.substate = "SELECT"
-        elif btn == ConButton.Z:
-            self.synth.panic_kill()
+    def handle_settings(self, btn: ConButton, pressed):
+        if pressed:
+            if btn == ConButton.LEFT:
+                self.synth.decrement_program()
+            elif btn == ConButton.RIGHT:
+                self.synth.increment_program()
+            elif btn == ConButton.UP:
+                self.synth.increment_setting()
+            elif btn == ConButton.DOWN:
+                self.synth.decrement_setting()
+            elif btn == ConButton.A:
+                self.synth.rotate_setting()
+            elif btn == ConButton.B:
+                self.synth.exit_settings_mode()
+                self.substate = "SELECT"
+            elif btn == ConButton.X:
+                self.synth.rotate_sf2()
+            elif btn == ConButton.Y:
+                self.synth.rotate_setting_param()
+            elif btn == ConButton.PLUS:
+                self.synth.save_preset()
+                self.synth.exit_settings_mode()
+                self.substate = "SELECT"
+            elif btn == ConButton.Z:
+                self.synth.panic_kill()
+            elif btn == ConButton.MINUS:
+                self.initiate_potential_shutdown()
+        else:
+            if btn == ConButton.MINUS:
+                self.handle_shutdown()
+
+    def initiate_potential_shutdown(self):
+        self.minus_pressed_at = pygame.time.get_ticks()
+        self.press_buffer = 3000
+    
+    def handle_shutdown(self):
+        if self.minus_pressed_at:
+            if pygame.time.get_ticks() - self.minus_pressed_at > self.press_buffer:
+                self.machine.change(ShutdownState(self.machine, self.synth, self.display))
+            else:
+                self.minus_pressed_at = None
 
     def prerender(self):
         self.substate_icon_shown = self.img_perf if self.substate == 'SELECT' else self.img_sett
