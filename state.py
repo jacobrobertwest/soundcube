@@ -8,7 +8,7 @@ class State:
     def exit(self): pass
     def handle_input(self, action: ConSignalMessage): pass
     def update(self, dt): pass
-    def render(self, screen): pass
+    def render(self, screen, event_happened): pass
 
 class StateMachine:
     def __init__(self, initial_state: State):
@@ -28,8 +28,9 @@ class StateMachine:
     def update(self, dt):
         self.state.update(dt)
 
-    def render(self, screen):
-        self.state.render(screen)
+    def render(self, screen, event_happened):
+        rtn = self.state.render(screen, event_happened)
+        return rtn
 
 # -------------------------
 # Boot State
@@ -39,7 +40,7 @@ class BootState(State):
         self.machine = machine
         self.synth = synth
         self.display = display
-
+        self.needs_initial_display = True
         self.boot_time = 20000
         # self.boot_time = 2000
 
@@ -67,19 +68,26 @@ class BootState(State):
     def handle_input(self, action):
         pass 
 
-    def render(self, screen):
-        screen.fill((0, 0, 0))
-        pygame.draw.circle(
-            screen,
-            (40, 40, 40, 255),  # opaque
-            (240 // 2, 240 // 2),
-            120
-        )
-        dt = PRIMARY_FONT.render(str(pygame.time.get_ticks()), True, (255,255,255))
-        screen.blit(dt, (10,10))
-        screen.blit(self.text_boot, self.text_boot_rect)
-        screen.blit(self.logo, self.logo_rect)
-        screen.blit(self.text_sc, self.text_sc_rect)
+    def render(self, screen, event_happened):
+        if self.needs_initial_display or event_happened:
+            screen.fill((0, 0, 0))
+            pygame.draw.circle(
+                screen,
+                (40, 40, 40, 255),  # opaque
+                (240 // 2, 240 // 2),
+                120
+            )
+            dt = PRIMARY_FONT.render(str(pygame.time.get_ticks()), True, (255,255,255))
+            # screen.blit(dt, (10,10))
+            screen.blit(self.text_boot, self.text_boot_rect)
+            screen.blit(self.logo, self.logo_rect)
+            screen.blit(self.text_sc, self.text_sc_rect)
+            if self.needs_initial_display:
+                self.needs_initial_display = False
+            print("attempting to blit")
+            return True
+        else:
+            return False
 
     def exit(self):
         self.synth.post_boot_init()
@@ -94,6 +102,7 @@ class RunState(State):
         self.synth = synth
         self.display = display
         self.substate = "SELECT"
+        self.needs_initial_display = True
         self.img_perf = pygame.image.load('files/perf.png').convert_alpha()
         self.img_sett = pygame.image.load('files/sett.png').convert_alpha()
         self.img_tri = pygame.image.load('files/tri.png').convert_alpha()
@@ -165,6 +174,7 @@ class RunState(State):
     def initiate_potential_shutdown(self):
         self.minus_pressed_at = pygame.time.get_ticks()
         self.press_buffer = 3000
+        # print(self.minus_pressed_at)
     
     def handle_shutdown(self):
         if self.minus_pressed_at:
@@ -172,6 +182,7 @@ class RunState(State):
                 self.machine.change(ShutdownState(self.machine, self.synth, self.display))
             else:
                 self.minus_pressed_at = None
+                print("didnt shutdown")
 
     def prerender(self):
         self.substate_icon_shown = self.img_perf if self.substate == 'SELECT' else self.img_sett
@@ -181,89 +192,95 @@ class RunState(State):
         self.inst_num_shown = self.synth.active_inst
         self.bg_color_shown = (40, 40, 40, 255) if self.substate == 'SELECT' else (60, 60, 60, 255)
     
-    def render(self, screen):
-        self.prerender()
-        screen.fill((0, 0, 0))
-        # background
-        pygame.draw.circle(
-            screen,
-            self.bg_color_shown, 
-            (WIDTH / 2, HEIGHT / 2),
-            WIDTH / 2
-        )
-        pygame.draw.circle(
-            screen,
-            (28, 28, 28, 255),
-            (WIDTH / 2, 20),
-            45
-        )
-        # foreground
-        # show substate icon
-        substate_logo = self.substate_icon_shown
-        substate_rect = substate_logo.get_rect(center = (WIDTH / 2, HEIGHT / 2 - 89))
-        screen.blit(substate_logo, substate_rect)
-        # show preset num (same for both modes)
-        color = PRESET_COLORS[self.synth.loaded_preset_num % len(PRESET_COLORS)]
-        text_preset_num = PRESET_FONT.render(f"{self.synth.loaded_preset_num}", True, color)
-        rect_preset_num = text_preset_num.get_rect(center=(WIDTH / 2, HEIGHT / 2))
-        screen.blit(text_preset_num, rect_preset_num)
-        # show preset name
-        text_preset_name = PRIMARY_FONT.render(f"{self.preset_name_shown}", True, 'white')
-        rect_preset_name = text_preset_name.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 43))
-        screen.blit(text_preset_name, rect_preset_name)
-        # show preset info line 1
-        text_preset_info_1 = SECONDARY_FONT.render(f"BANK {self.bank_num_shown}", True, 'white')
-        rect_preset_info_1 = text_preset_info_1.get_rect(midright=(WIDTH / 2 - 10, HEIGHT / 2 + 75))
-        screen.blit(text_preset_info_1, rect_preset_info_1)
-        # show preset info line 2
-        text_preset_info_2 = SECONDARY_FONT.render(f"PROG {self.inst_num_shown}", True, 'white')
-        rect_preset_info_2 = text_preset_info_2.get_rect(midright=(WIDTH / 2 - 10, HEIGHT / 2 + 95))
-        screen.blit(text_preset_info_2, rect_preset_info_2)
-        # show icon 
-        game_icon = self.sf_icon_shown
-        rect_game_icon = game_icon.get_rect(center = (WIDTH / 2 + 30, HEIGHT / 2 + 85))
-        screen.blit(game_icon, rect_game_icon)
-        left_arrow = self.imgs_tri['left']
-        right_arrow = self.imgs_tri['right']
-        if self.substate == "SELECT":
-            left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2))
-            screen.blit(left_arrow, left_arrow_rect)
-            right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2))
-            screen.blit(right_arrow, right_arrow_rect)
-        elif self.substate == 'SETTINGS':
-            left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2 + 43))
-            screen.blit(left_arrow, left_arrow_rect)
-            right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2 + 43))
-            screen.blit(right_arrow, right_arrow_rect)
-            text_save = PRIMARY_FONT.render("(+) SAVE", True, 'white')
-            rect_save = text_save.get_rect(center=(WIDTH / 2 - 80, HEIGHT / 2))
-            screen.blit(text_save, rect_save)
-            text_settings_swap = SECONDARY_FONT.render("(B) BACK", True, 'white')
-            rect_settings_swap = text_settings_swap.get_rect(center=(55,45))
-            screen.blit(text_settings_swap,rect_settings_swap)
-            text_sf2_change = SECONDARY_FONT.render("(X)", True, 'white')
-            rect_sf2_change = text_sf2_change.get_rect(center=(181, 196))
-            screen.blit(text_sf2_change, rect_sf2_change)
-            fx_icon = self.synth.selected_fx_icon
-            rect_fx_icon = fx_icon.get_rect(center=(190,65))
-            screen.blit(fx_icon, rect_fx_icon)
-            current_effect = self.synth.effects[self.synth.selected_effect_index]
-            text_fx_name = SECONDARY_FONT.render(f"{current_effect.upper()}", True, 'white')
-            rect_fx_name = text_fx_name.get_rect(center=(190,93))
-            screen.blit(text_fx_name, rect_fx_name)
-            text_fx_swap = SECONDARY_FONT.render("(A)", True, 'white')
-            rect_fx_swap = text_fx_swap.get_rect(center=(160,65))
-            screen.blit(text_fx_swap, rect_fx_swap)
-            pygame.draw.rect(screen, 'black', (180, 105, 20, 40))
-            current_fx_val = round(self.synth.active_fx_chain[current_effect]['value'],1)
-            current_fx_max = self.synth.fx_dict[current_effect]['rng'][1]
-            fx_perc = round(current_fx_val / current_fx_max, 5)
-            h = 36 * fx_perc
-            y_pos = 143 - (h)
-            pygame.draw.rect(screen, 'darkgreen', (182, y_pos, 16, h))
-            text_fx_val = SECONDARY_FONT.render(f"{current_fx_val}", True, 'white')
-            rect_fx_val = text_fx_val.get_rect(center=(190,125))
-            screen.blit(text_fx_val, rect_fx_val)
+    def render(self, screen, event_happened):
+        if self.needs_initial_display or event_happened:
+            self.prerender()
+            screen.fill((40, 40, 40))
+            # background
+            pygame.draw.circle(
+                screen,
+                self.bg_color_shown, 
+                (WIDTH / 2, HEIGHT / 2),
+                WIDTH / 2
+            )
+            pygame.draw.circle(
+                screen,
+                (28, 28, 28, 255),
+                (WIDTH / 2, 20),
+                45
+            )
+            # foreground
+            # show substate icon
+            substate_logo = self.substate_icon_shown
+            substate_rect = substate_logo.get_rect(center = (WIDTH / 2, HEIGHT / 2 - 89))
+            screen.blit(substate_logo, substate_rect)
+            # show preset num (same for both modes)
+            color = PRESET_COLORS[self.synth.loaded_preset_num % len(PRESET_COLORS)]
+            text_preset_num = PRESET_FONT.render(f"{self.synth.loaded_preset_num}", True, color)
+            rect_preset_num = text_preset_num.get_rect(center=(WIDTH / 2, HEIGHT / 2))
+            screen.blit(text_preset_num, rect_preset_num)
+            # show preset name
+            text_preset_name = PRIMARY_FONT.render(f"{self.preset_name_shown}", True, 'white')
+            rect_preset_name = text_preset_name.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 43))
+            screen.blit(text_preset_name, rect_preset_name)
+            # show preset info line 1
+            text_preset_info_1 = SECONDARY_FONT.render(f"BANK {self.bank_num_shown}", True, 'white')
+            rect_preset_info_1 = text_preset_info_1.get_rect(midright=(WIDTH / 2 - 10, HEIGHT / 2 + 75))
+            screen.blit(text_preset_info_1, rect_preset_info_1)
+            # show preset info line 2
+            text_preset_info_2 = SECONDARY_FONT.render(f"PROG {self.inst_num_shown}", True, 'white')
+            rect_preset_info_2 = text_preset_info_2.get_rect(midright=(WIDTH / 2 - 10, HEIGHT / 2 + 95))
+            screen.blit(text_preset_info_2, rect_preset_info_2)
+            # show icon 
+            game_icon = self.sf_icon_shown
+            rect_game_icon = game_icon.get_rect(center = (WIDTH / 2 + 30, HEIGHT / 2 + 85))
+            screen.blit(game_icon, rect_game_icon)
+            left_arrow = self.imgs_tri['left']
+            right_arrow = self.imgs_tri['right']
+            if self.substate == "SELECT":
+                left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2))
+                screen.blit(left_arrow, left_arrow_rect)
+                right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2))
+                screen.blit(right_arrow, right_arrow_rect)
+            elif self.substate == 'SETTINGS':
+                left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2 + 43))
+                screen.blit(left_arrow, left_arrow_rect)
+                right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2 + 43))
+                screen.blit(right_arrow, right_arrow_rect)
+                text_save = PRIMARY_FONT.render("(+) SAVE", True, 'white')
+                rect_save = text_save.get_rect(center=(WIDTH / 2 - 80, HEIGHT / 2))
+                screen.blit(text_save, rect_save)
+                text_settings_swap = SECONDARY_FONT.render("(B) BACK", True, 'white')
+                rect_settings_swap = text_settings_swap.get_rect(center=(55,45))
+                screen.blit(text_settings_swap,rect_settings_swap)
+                text_sf2_change = SECONDARY_FONT.render("(X)", True, 'white')
+                rect_sf2_change = text_sf2_change.get_rect(center=(181, 196))
+                screen.blit(text_sf2_change, rect_sf2_change)
+                fx_icon = self.synth.selected_fx_icon
+                rect_fx_icon = fx_icon.get_rect(center=(190,65))
+                screen.blit(fx_icon, rect_fx_icon)
+                current_effect = self.synth.effects[self.synth.selected_effect_index]
+                text_fx_name = SECONDARY_FONT.render(f"{current_effect.upper()}", True, 'white')
+                rect_fx_name = text_fx_name.get_rect(center=(190,93))
+                screen.blit(text_fx_name, rect_fx_name)
+                text_fx_swap = SECONDARY_FONT.render("(A)", True, 'white')
+                rect_fx_swap = text_fx_swap.get_rect(center=(160,65))
+                screen.blit(text_fx_swap, rect_fx_swap)
+                pygame.draw.rect(screen, 'black', (180, 105, 20, 40))
+                current_fx_val = round(self.synth.active_fx_chain[current_effect]['value'],1)
+                current_fx_max = self.synth.fx_dict[current_effect]['rng'][1]
+                fx_perc = round(current_fx_val / current_fx_max, 5)
+                h = 36 * fx_perc
+                y_pos = 143 - (h)
+                pygame.draw.rect(screen, 'darkgreen', (182, y_pos, 16, h))
+                text_fx_val = SECONDARY_FONT.render(f"{current_fx_val}", True, 'white')
+                rect_fx_val = text_fx_val.get_rect(center=(190,125))
+                screen.blit(text_fx_val, rect_fx_val)
+            if self.needs_initial_display:
+                self.needs_initial_display = False
+            return True
+        else:
+            return False
 
 # -------------------------
 # Shutdown State

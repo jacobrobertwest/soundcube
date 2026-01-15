@@ -15,7 +15,7 @@ class Display(LCD_1inch28.LCD_1inch28):
         super().__init__()
         self.Init()
         self.clear()
-        self.bl_DutyCycle(50)
+        self.bl_DutyCycle(25)
 
     def on(self):
         print("Display ON")
@@ -24,12 +24,12 @@ class Display(LCD_1inch28.LCD_1inch28):
         print("Display OFF")
         self.clear()
 
-    def render(self, screen):
+    def render2(self, screen):
         data = pygame.image.tostring(screen, "RGB")
         data_pil = Image.frombytes("RGB", screen.get_size(), data)
         self.ShowImage(data_pil)
 
-    def render2(self, screen):
+    def render(self, screen):
         # 1. Get raw RGB data from Pygame (24-bit)
         # We use surfarray because it's a zero-copy view of the pixels
         img = pygame.surfarray.array3d(screen)

@@ -5,8 +5,8 @@ from controller_mappings import *
 from repeater import *
 from state import *
 from synth import *
-# from display import *  #uncomment in prod
-from dummy import *       #comment out in prod
+from display import *  #uncomment in prod
+# from dummy import *       #comment out in prod
 
 def main():
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -55,13 +55,15 @@ def main():
 
         dt = clock.tick(30)
         machine.update(dt)
-        machine.render(screen)
+        has_event = True if len(messages) > 0 or len(axis_actions) > 0 else False
+        needs_display_render = machine.render(screen, has_event)
         
         # render to the connected LCD display
-        display.render(screen)
+        if needs_display_render:
+            display.render(screen)
+            pygame.display.flip()
+        
         # pygame.display.set_caption(f"SoundCube {pygame.mouse.get_pos()}")
-        pygame.display.flip()
-
 if __name__ == '__main__':
     try:
         main()

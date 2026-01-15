@@ -23,9 +23,9 @@ class Controls:
             print("Joystick disconnected")
 
         if event.type == pygame.JOYBUTTONDOWN:
-            return ConEventMessage(button=True)
+            return ConEventMessage(button=True, scancode=event.button)
         if event.type == pygame.JOYBUTTONUP:
-            return ConEventMessage(button=True, release=True)
+            return ConEventMessage(button=True, scancode=event.button, release=True)
 
         if self.keyboard_active:
             if event.type == pygame.KEYDOWN:
@@ -42,11 +42,8 @@ class Controls:
         if con_event_msg.has_button:
             type = ConType.CONT_SWITCH
             btn_mapping = CONT_SWITCH_BTN
-            for btn in range(self.num_buttons):
-                print(f"{btn} : {self.joystick.get_button(btn)}")
-                if self.joystick.get_button(btn) == 1:
-                    if btn_mapping[btn] != "":
-                        active.append(btn_mapping[btn])
+            if btn_mapping.get(con_event_msg.scancode):
+                active.append(btn_mapping.get(con_event_msg.scancode))
         if con_event_msg.has_keypress:
             type = ConType.KEYBOARD
             btn_mapping = CONT_KEYBOARD
