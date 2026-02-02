@@ -2,7 +2,7 @@
   "1": {
     "sf2": 1,
     "bank": 0,
-    "inst": 5,
+    "inst": 52,
     "gain": 0.5,
     "fx": {
       "gain": {
@@ -22,7 +22,7 @@
   "2": {
     "sf2": 1,
     "bank": 0,
-    "inst": 46,
+    "inst": 72,
     "gain": 0.5,
     "fx": {
       "gain": {
@@ -40,9 +40,9 @@
     }
   },
   "3": {
-    "sf2": 1,
-    "bank": 0,
-    "inst": 52,
+    "sf2": 3,
+    "bank": 80,
+    "inst": 20,
     "gain": 0.5,
     "fx": {
       "gain": {
@@ -62,7 +62,7 @@
   "4": {
     "sf2": 2,
     "bank": 0,
-    "inst": 8,
+    "inst": 65,
     "gain": 0.5,
     "fx": {
       "gain": {
@@ -101,8 +101,8 @@
   },
   "6": {
     "sf2": 3,
-    "bank": 1,
-    "inst": 52,
+    "bank": 0,
+    "inst": 1,
     "gain": 0.5,
     "fx": {
       "gain": {
@@ -150,10 +150,24 @@
     "gain": 0.5
   },
   "12": {
-    "sf2": 1,
+    "sf2": 2,
     "bank": 0,
-    "inst": 11,
-    "gain": 0.5
+    "inst": 16,
+    "gain": 0.5,
+    "fx": {
+      "gain": {
+        "value": 2.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "13": {
     "sf2": 1,
