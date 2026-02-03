@@ -121,6 +121,7 @@ class ConButton(Enum):
     MINUS = 9
     Z = 10
     L = 11
+    SCRSH = 12
     
 
 class ConEventMessage:

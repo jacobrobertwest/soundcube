@@ -37,7 +37,7 @@ class Synth:
         self.selected_effect_index = 0
         self.selected_fx_icon = self.fx_icons[self.selected_effect_index]
         self.selected_fx_meta_map = self.fx_dict[self.effects[self.selected_effect_index]]
-        # self.run_synth() #uncomment in prod
+        self.run_synth() #uncomment in prod
         return True
     
     def run_synth(self):
@@ -45,7 +45,8 @@ class Synth:
         cmd = [
             "fluidsynth",
             "-a", "alsa",
-            "-o", "midi.autoconnect=True"
+            "-o", "midi.autoconnect=True",
+            "-v"
         ]
         cmd.append(self.sf2_files[0])
         cmd.append("files/bootup.mid")
@@ -127,8 +128,12 @@ class Synth:
             # print(self.loaded_preset['fx'])
         self.active_fx_chain = deepcopy(self.loaded_preset['fx'])
         if self.active_breathmode:
+            self.send_command("resetbasicchannels")
+            self.send_command("setbasicchannels 0 3 1")
             self.send_command("setbreathmode 0 1 1 0")
         else:
+            self.send_command("resetbasicchannels")
+            self.send_command("setbasicchannels 0 2 1")
             self.send_command("setbreathmode 0 0 0 0")
         self.enforce_active_elements()
         self.enforce_fx()
@@ -223,8 +228,12 @@ class Synth:
     def toggle_breathmode(self):
         self.active_breathmode = not self.active_breathmode
         if self.active_breathmode:
+            self.send_command("resetbasicchannels")
+            self.send_command("setbasicchannels 0 3 1")
             self.send_command("setbreathmode 0 1 1 0")
         else:
+            self.send_command("resetbasicchannels")
+            self.send_command("setbasicchannels 0 2 1")
             self.send_command("setbreathmode 0 0 0 0")
 
     def save_preset(self):

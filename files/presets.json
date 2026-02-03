@@ -4,7 +4,7 @@
     "bank": 0,
     "inst": 52,
     "gain": 0.5,
-    "breathmode": true,
+    "breathmode": false,
     "fx": {
       "gain": {
         "value": 1.0,
@@ -144,7 +144,21 @@
     "bank": 0,
     "inst": 8,
     "gain": 0.5,
-    "breathmode": true
+    "breathmode": false,
+    "fx": {
+      "gain": {
+        "value": 2.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "10": {
     "sf2": 1,

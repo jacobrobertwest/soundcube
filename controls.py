@@ -23,6 +23,7 @@ class Controls:
             print("Joystick disconnected")
 
         if event.type == pygame.JOYBUTTONDOWN:
+            # print(event.button)
             return ConEventMessage(button=True, scancode=event.button)
         if event.type == pygame.JOYBUTTONUP:
             return ConEventMessage(button=True, scancode=event.button, release=True)

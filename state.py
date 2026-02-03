@@ -138,11 +138,13 @@ class RunState(State):
                 self.substate = "SETTINGS"
             elif btn == ConButton.Z:
                 self.synth.panic_kill()
-            elif btn == ConButton.MINUS:
+            elif btn in (ConButton.MINUS, ConButton.SCRSH):
                 self.initiate_potential_shutdown()
         else:
             if btn == ConButton.MINUS:
                 self.handle_shutdown()
+            if btn == ConButton.SCRSH:
+                self.handle_shutdown(True)
 
     def handle_settings(self, btn: ConButton, pressed):
         if pressed:
@@ -171,21 +173,27 @@ class RunState(State):
                 self.synth.toggle_breathmode()
             elif btn == ConButton.Z:
                 self.synth.panic_kill()
-            elif btn == ConButton.MINUS:
+            elif btn in (ConButton.MINUS, ConButton.SCRSH):
                 self.initiate_potential_shutdown()
         else:
             if btn == ConButton.MINUS:
                 self.handle_shutdown()
+            if btn == ConButton.SCRSH:
+                self.handle_shutdown(True)
 
     def initiate_potential_shutdown(self):
         self.minus_pressed_at = pygame.time.get_ticks()
         self.press_buffer = 3000
         # print(self.minus_pressed_at)
     
-    def handle_shutdown(self):
+    def handle_shutdown(self, shutdown_system = False):
         if self.minus_pressed_at:
             if pygame.time.get_ticks() - self.minus_pressed_at > self.press_buffer:
-                self.machine.change(ShutdownState(self.machine, self.synth, self.display))
+                if not shutdown_system:
+                    self.machine.change(ShutdownState(self.machine, self.synth, self.display))
+                else:
+                    self.display.off()
+                    os.system("sudo shutdown -h now")
             else:
                 self.minus_pressed_at = None
                 print("didnt shutdown")
