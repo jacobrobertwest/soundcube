@@ -106,6 +106,10 @@ class RunState(State):
         self.img_perf = pygame.image.load('files/perf.png').convert_alpha()
         self.img_sett = pygame.image.load('files/sett.png').convert_alpha()
         self.img_tri = pygame.image.load('files/tri.png').convert_alpha()
+        self.img_breath = pygame.image.load('files/breath.png').convert_alpha()
+        self.rect_breath = self.img_breath.get_rect(center=(45,80))
+        self.font_breath = SECONDARY_FONT.render("(L)", True, 'white')
+        self.rect_font_breath = self.font_breath.get_rect(center=(25,80))
         self.imgs_tri = {
             "up": self.img_tri,
             "down": pygame.transform.flip(self.img_tri, flip_x=True, flip_y=False),
@@ -163,6 +167,8 @@ class RunState(State):
                 self.synth.save_preset()
                 self.synth.exit_settings_mode()
                 self.substate = "SELECT"
+            elif btn == ConButton.L:
+                self.synth.toggle_breathmode()
             elif btn == ConButton.Z:
                 self.synth.panic_kill()
             elif btn == ConButton.MINUS:
@@ -190,6 +196,7 @@ class RunState(State):
         self.sf_icon_shown = self.synth.active_icon
         self.bank_num_shown = self.synth.active_bank
         self.inst_num_shown = self.synth.active_inst
+        self.breath_mode_shown = self.synth.active_breathmode
         self.bg_color_shown = (40, 40, 40, 255) if self.substate == 'SELECT' else (60, 60, 60, 255)
     
     def render(self, screen, event_happened):
@@ -232,6 +239,8 @@ class RunState(State):
             rect_preset_info_2 = text_preset_info_2.get_rect(midright=(WIDTH / 2 - 10, HEIGHT / 2 + 95))
             screen.blit(text_preset_info_2, rect_preset_info_2)
             # show icon 
+            if self.breath_mode_shown:
+                screen.blit(self.img_breath, self.rect_breath)
             game_icon = self.sf_icon_shown
             rect_game_icon = game_icon.get_rect(center = (WIDTH / 2 + 30, HEIGHT / 2 + 85))
             screen.blit(game_icon, rect_game_icon)
@@ -243,6 +252,7 @@ class RunState(State):
                 right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2))
                 screen.blit(right_arrow, right_arrow_rect)
             elif self.substate == 'SETTINGS':
+                screen.blit(self.font_breath, self.rect_font_breath)
                 left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2 + 43))
                 screen.blit(left_arrow, left_arrow_rect)
                 right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2 + 43))

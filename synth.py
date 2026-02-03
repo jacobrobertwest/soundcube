@@ -37,7 +37,7 @@ class Synth:
         self.selected_effect_index = 0
         self.selected_fx_icon = self.fx_icons[self.selected_effect_index]
         self.selected_fx_meta_map = self.fx_dict[self.effects[self.selected_effect_index]]
-        self.run_synth() #uncomment in prod
+        # self.run_synth() #uncomment in prod
         return True
     
     def run_synth(self):
@@ -75,6 +75,8 @@ class Synth:
         for f in self.sf2_files[1:]:
             self.send_command(f"load {f}")
         self.send_command("fonts")
+        self.send_command("resetbasicchannels")
+        self.send_command("setbasicchannels 0 3 1")
         self.handle_preset_change(1)
     
     # send command to subprocess terminal running fluidsynth
@@ -111,6 +113,7 @@ class Synth:
         self.active_sf2 = self.loaded_preset["sf2"]
         self.active_bank = self.loaded_preset["bank"]
         self.active_inst = self.loaded_preset["inst"]
+        self.active_breathmode = self.loaded_preset["breathmode"]
         if "fx" not in self.loaded_preset:
             self.loaded_preset['fx'] = {}
             for effect in self.fx_dict:
@@ -123,6 +126,10 @@ class Synth:
                 #         self.loaded_preset['fx'][effect]['params'][param] = self.fx_dict[effect]['params'][param]['def']
             # print(self.loaded_preset['fx'])
         self.active_fx_chain = deepcopy(self.loaded_preset['fx'])
+        if self.active_breathmode:
+            self.send_command("setbreathmode 0 1 1 0")
+        else:
+            self.send_command("setbreathmode 0 0 0 0")
         self.enforce_active_elements()
         self.enforce_fx()
 
@@ -212,11 +219,19 @@ class Synth:
             new_setting_val = self.selected_fx_meta_map['rng'][0]
         self.send_command(self.selected_fx_meta_map['cmd'].format(val=new_setting_val))
         self.active_fx_chain[self.effects[self.selected_effect_index]]['value'] = new_setting_val
+    
+    def toggle_breathmode(self):
+        self.active_breathmode = not self.active_breathmode
+        if self.active_breathmode:
+            self.send_command("setbreathmode 0 1 1 0")
+        else:
+            self.send_command("setbreathmode 0 0 0 0")
 
     def save_preset(self):
         self.presets[str(self.loaded_preset_num)]['sf2'] = self.active_sf2
         self.presets[str(self.loaded_preset_num)]['bank'] = self.active_bank
         self.presets[str(self.loaded_preset_num)]['inst'] = self.active_inst
+        self.presets[str(self.loaded_preset_num)]['breathmode'] = self.active_breathmode
         self.presets[str(self.loaded_preset_num)]['fx'] = deepcopy(self.active_fx_chain)
         with open(self.presets_file, "w", encoding="utf-8") as f:
             json.dump(self.presets, f, indent=2, separators=(",", ": "))

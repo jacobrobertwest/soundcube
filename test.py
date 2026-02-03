@@ -1,7 +1,7 @@
 import os
 import json
 from sf2utils.sf2parse import Sf2File
-fi = '02_poke'
+fi = '03_lozmm'
 sf2_path = f"files/sf2/{fi}.sf2"
 output_path = f"files/sf2_meta/{fi}.json"
 

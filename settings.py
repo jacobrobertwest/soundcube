@@ -120,6 +120,7 @@ class ConButton(Enum):
     PLUS = 8
     MINUS = 9
     Z = 10
+    L = 11
     
 
 class ConEventMessage:
