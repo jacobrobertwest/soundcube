@@ -59,9 +59,12 @@ def main():
         needs_display_render = machine.render(screen, has_event)
         
         # render to the connected LCD display
-        if needs_display_render:
-            display.render(screen)
-            pygame.display.flip()
+        # if needs_display_render:
+        #     display.render(screen)
+        #     pygame.display.flip()
+    
+        display.render(screen)
+        pygame.display.flip()
         
         # pygame.display.set_caption(f"SoundCube {pygame.mouse.get_pos()}")
 if __name__ == '__main__':

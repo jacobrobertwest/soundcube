@@ -4,7 +4,8 @@
     "bank": 0,
     "inst": 52,
     "gain": 0.5,
-    "breathmode": false,
+    "poly_mode": true,
+    "breathmode": true,
     "fx": {
       "gain": {
         "value": 1.0,
@@ -25,10 +26,11 @@
     "bank": 0,
     "inst": 72,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true,
     "fx": {
       "gain": {
-        "value": 2.0,
+        "value": 1.0,
         "params": null
       },
       "reverb": {
@@ -46,10 +48,11 @@
     "bank": 80,
     "inst": 20,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true,
     "fx": {
       "gain": {
-        "value": 2.0,
+        "value": 1.0,
         "params": null
       },
       "reverb": {
@@ -67,10 +70,11 @@
     "bank": 0,
     "inst": 65,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true,
     "fx": {
       "gain": {
-        "value": 2.0,
+        "value": 1.0,
         "params": null
       },
       "reverb": {
@@ -88,10 +92,11 @@
     "bank": 0,
     "inst": 40,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true,
     "fx": {
       "gain": {
-        "value": 2.0,
+        "value": 1.0,
         "params": null
       },
       "reverb": {
@@ -109,10 +114,11 @@
     "bank": 0,
     "inst": 1,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true,
     "fx": {
       "gain": {
-        "value": 2.0,
+        "value": 1.0,
         "params": null
       },
       "reverb": {
@@ -130,24 +136,55 @@
     "bank": 0,
     "inst": 6,
     "gain": 0.5,
-    "breathmode": true
+    "poly_mode": true,
+    "breathmode": false,
+    "fx": {
+      "gain": {
+        "value": 1.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "8": {
     "sf2": 1,
     "bank": 0,
     "inst": 7,
     "gain": 0.5,
-    "breathmode": true
+    "poly_mode": true,
+    "breathmode": false,
+    "fx": {
+      "gain": {
+        "value": 1.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "9": {
     "sf2": 1,
     "bank": 0,
     "inst": 8,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": false,
     "fx": {
       "gain": {
-        "value": 2.0,
+        "value": 1.0,
         "params": null
       },
       "reverb": {
@@ -165,23 +202,55 @@
     "bank": 0,
     "inst": 9,
     "gain": 0.5,
-    "breathmode": true
+    "poly_mode": true,
+    "breathmode": true,
+    "fx": {
+      "gain": {
+        "value": 1.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "11": {
     "sf2": 1,
     "bank": 0,
     "inst": 10,
     "gain": 0.5,
-    "breathmode": true
+    "poly_mode": true,
+    "breathmode": true,
+    "fx": {
+      "gain": {
+        "value": 1.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "12": {
     "sf2": 2,
     "bank": 0,
     "inst": 16,
     "gain": 0.5,
+    "poly_mode": true,
+    "breathmode": true,
     "fx": {
       "gain": {
-        "value": 2.0,
+        "value": 1.0,
         "params": null
       },
       "reverb": {
@@ -199,27 +268,73 @@
     "bank": 0,
     "inst": 12,
     "gain": 0.5,
-    "breathmode": true
+    "poly_mode": true,
+    "breathmode": true,
+    "fx": {
+      "gain": {
+        "value": 1.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "14": {
     "sf2": 1,
     "bank": 0,
     "inst": 13,
     "gain": 0.5,
-    "breathmode": true
+    "poly_mode": true,
+    "breathmode": true,
+    "fx": {
+      "gain": {
+        "value": 1.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "15": {
     "sf2": 1,
     "bank": 0,
     "inst": 14,
     "gain": 0.5,
-    "breathmode": true
+    "poly_mode": true,
+    "breathmode": true,
+    "fx": {
+      "gain": {
+        "value": 1.0,
+        "params": null
+      },
+      "reverb": {
+        "value": 0,
+        "params": null
+      },
+      "chorus": {
+        "value": 0,
+        "params": null
+      }
+    }
   },
   "16": {
     "sf2": 1,
     "bank": 0,
     "inst": 15,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true
   },
   "17": {
@@ -227,6 +342,7 @@
     "bank": 0,
     "inst": 16,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true
   },
   "18": {
@@ -234,6 +350,7 @@
     "bank": 0,
     "inst": 17,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true
   },
   "19": {
@@ -241,6 +358,7 @@
     "bank": 0,
     "inst": 18,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true
   },
   "20": {
@@ -248,6 +366,7 @@
     "bank": 0,
     "inst": 19,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true
   },
   "21": {
@@ -255,6 +374,7 @@
     "bank": 0,
     "inst": 20,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true
   },
   "22": {
@@ -262,6 +382,7 @@
     "bank": 0,
     "inst": 21,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true
   },
   "23": {
@@ -269,6 +390,7 @@
     "bank": 0,
     "inst": 22,
     "gain": 0.5,
+    "poly_mode": true,
     "breathmode": true
   },
   "24": {
@@ -276,6 +398,7 @@
     "bank": 0,
     "inst": 23,
     "gain": 0.6,
+    "poly_mode": true,
     "breathmode": true
   }
 }

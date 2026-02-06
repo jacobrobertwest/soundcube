@@ -8,7 +8,6 @@ class Controls:
         self.joystick = None
         self.keyboard_active = keyboard_active_flag
     
-        
     def handle_event(self, event: pygame.event):
         if event.type == pygame.JOYDEVICEADDED:
             joy = pygame.joystick.Joystick(event.device_index)

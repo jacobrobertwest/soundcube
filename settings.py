@@ -13,9 +13,11 @@ PRIMARY_FONT_FP = 'files/font/Futura.otf'
 GAMECUBE_FONT_FP = 'files/font/GameCube.ttf'
 MARIO_FONT_FP = 'files/font/Mario.ttf'
 EARTHBOUND_FONT_FP = 'files/font/Earthbound.otf'
+UNICODE_FONT_FP = 'files/font/unifont.otf'
 
 PRIMARY_FONT = pygame.font.Font(PRIMARY_FONT_FP, 18)
 SECONDARY_FONT = pygame.font.Font(PRIMARY_FONT_FP, 14)
+UNICODE_FONT = pygame.font.Font(UNICODE_FONT_FP, 15)
 GCN_FONT = pygame.font.Font(GAMECUBE_FONT_FP, 12)
 PRESET_FONT = pygame.font.Font(MARIO_FONT_FP, 90)
 
@@ -28,7 +30,7 @@ PRESET_COLORS = [
 
 FX_LIBRARY = {
     "gain": { 
-        "def": 2.0,                     # default value
+        "def": 1.0,                     # default value
         "rng": (0.0,5.0),                   # min max value range (if tuple, stop at top/bottom, if list, flip between values)
         "incr": 0.1,                    # increment value by
         "cmd": "gain {val}",      # terminal command
@@ -122,6 +124,7 @@ class ConButton(Enum):
     Z = 10
     L = 11
     SCRSH = 12
+    HOME = 13
     
 
 class ConEventMessage:
