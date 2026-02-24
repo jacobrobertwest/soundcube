@@ -76,6 +76,20 @@ class Synth:
             self.send_command(f"load {f}")
         self.send_command("fonts")
         self.send_command("set synth.polyphony 8")
+        self.send_command("router_clear")
+        self.send_command("router_begin cc")
+        self.send_command("router_end")
+        self.send_command("router_begin note")
+        self.send_command("router_end")
+        self.send_command("router_begin prog")
+        self.send_command("router_end")
+        self.send_command("router_begin pbend")
+        self.send_command("router_par1 0 20000 0.5 4096")
+        self.send_command("router_end")
+        self.send_command("router_begin cpress")
+        self.send_command("router_end")
+        self.send_command("router_begin kpress")
+        self.send_command("router_end")
         self.handle_preset_change(1)
     
     # send command to subprocess terminal running fluidsynth
@@ -164,8 +178,9 @@ class Synth:
 
     def panic_kill(self):
         # control change | channel 0 | cc123 (kill all notes) | value (not used for this CC, but required)
+        self.send_command("cc 0 121 0")
         self.send_command("cc 0 123 0")
-
+        
     # --- SETTINGS MODE -----
     def enter_settings_mode(self):
         print("Entering settings mode")

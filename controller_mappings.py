@@ -13,7 +13,7 @@ CONT_SWITCH_BTN = {
     9 : ConButton.PLUS, 
     10 : "",
     11 : "",
-    12 : "",
+    12 : ConButton.HOME,
     13 : ConButton.SCRSH,
     14 : "",
     15 : "",
