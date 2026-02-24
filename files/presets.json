@@ -5,7 +5,7 @@
     "inst": 52,
     "gain": 0.5,
     "poly_mode": true,
-    "breathmode": true,
+    "breathmode": false,
     "fx": {
       "gain": {
         "value": 1.0,
@@ -225,7 +225,7 @@
     "inst": 51,
     "gain": 0.5,
     "poly_mode": true,
-    "breathmode": true,
+    "breathmode": false,
     "fx": {
       "gain": {
         "value": 1.0,
@@ -704,9 +704,9 @@
     }
   },
   "33": {
-    "sf2": 4,
-    "bank": 1,
-    "inst": 35,
+    "sf2": 3,
+    "bank": 80,
+    "inst": 20,
     "gain": 0.6,
     "poly_mode": true,
     "breathmode": true,

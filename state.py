@@ -170,7 +170,7 @@ class RunState(State):
             elif btn == ConButton.X:
                 self.synth.rotate_sf2()
             elif btn == ConButton.Y:
-                self.synth.rotate_setting_param()
+                self.synth.rotate_setting()
             elif btn == ConButton.PLUS:
                 self.synth.save_preset()
                 self.synth.exit_settings_mode()
