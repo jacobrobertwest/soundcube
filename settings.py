@@ -14,7 +14,7 @@ pygame.font.init()
 
 SOUNDCUBE_MODE = os.getenv("SOUNDCUBE_MODE", "prod")
 
-SOUNDCUBE_VERSION = '1.1.2'
+SOUNDCUBE_VERSION = '1.1.3'
 
 PRIMARY_FONT_FP = 'files/font/Futura.otf'
 GAMECUBE_FONT_FP = 'files/font/GameCube.ttf'
@@ -134,6 +134,8 @@ class ConButton(Enum):
     HOME = 13
     L3 = 14
     R3 = 15
+    ZL = 16
+    ZR = 17
     
 
 class ConEventMessage:

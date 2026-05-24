@@ -377,7 +377,7 @@ class UpdateState(State):
         self.changes_not_found_text_rect = self.changes_not_found_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 10))
         self.update_pass_text = SECONDARY_FONT.render(f"Update succeeded. MINUS to reboot.", True, 'black')
         self.update_pass_text_rect = self.update_pass_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 5))
-        self.update_fail_text = SECONDARY_FONT.render(f"Update failed:", True, 'black')
+        self.update_fail_text = SECONDARY_FONT.render(f"Update failed. MINUS to reboot.", True, 'black')
         self.update_fail_text_rect = self.update_fail_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 5))
 
     def enter(self):
