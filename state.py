@@ -36,13 +36,12 @@ class StateMachine:
 # Boot State
 # -------------------------
 class BootState(State):
-    def __init__(self, machine, synth, display):
+    def __init__(self, machine, synth, display, mode):
         self.machine = machine
         self.synth = synth
         self.display = display
         self.needs_initial_display = True
-        self.boot_time = 20000
-        # self.boot_time = 2000
+        self.boot_time = 20000 if mode == 'prod' else 2000
 
         self.logo = pygame.image.load('files/chp_logo.png').convert_alpha()
         self.logo_rect = self.logo.get_rect(center = (WIDTH / 2, HEIGHT / 2))
@@ -125,68 +124,74 @@ class RunState(State):
         self.minus_pressed_at = None
         
     def handle_input(self, action: ConSignalMessage):
-        for btn in action.c_button:
-            if self.substate == "SELECT":
-                self.handle_patch_select(btn, action.pressed)
-            elif self.substate == "SETTINGS":
-                self.handle_settings(btn, action.pressed)
+        if self.substate == "SELECT":
+            self.handle_patch_select(action.c_button, action.pressed)
+        elif self.substate == "SETTINGS":
+            self.handle_settings(action.c_button, action.pressed)
 
-    def handle_patch_select(self, btn: ConButton, pressed):
+    def handle_patch_select(self, btn: list[ConButton], pressed):
         if pressed:
-            if btn == ConButton.LEFT:
+            if ConButton.L3 in btn and ConButton.R3 in btn:
+                self.enter_update_mode()
+            elif ConButton.LEFT in btn:
                 self.synth.decrement_preset()
-            elif btn == ConButton.RIGHT:
+            elif ConButton.RIGHT in btn:
                 self.synth.increment_preset()
-            # elif btn == ConButton.Y:
-            #     self.machine.change(ShutdownState(self.machine, self.synth, self.display))
-            elif btn == ConButton.A:
+            elif ConButton.A in btn:
                 self.synth.enter_settings_mode()
                 self.substate = "SETTINGS"
-            elif btn == ConButton.Z:
+            elif ConButton.L in btn:
+                self.synth.toggle_breathmode()
+            elif ConButton.Z in btn:
                 self.synth.panic_kill()
-            elif btn in (ConButton.MINUS, ConButton.SCRSH):
+            elif ConButton.MINUS in btn or ConButton.SCRSH in btn:
                 self.initiate_potential_shutdown()
         else:
-            if btn == ConButton.MINUS:
+            if ConButton.MINUS in btn:
                 self.handle_shutdown()
-            if btn == ConButton.SCRSH:
+            if ConButton.SCRSH in btn:
                 self.handle_shutdown(True)
 
-    def handle_settings(self, btn: ConButton, pressed):
+    def enter_update_mode(self):
+        self.machine.change(UpdateState(self.machine, self.synth, self.display))
+
+    def handle_settings(self, btn: list[ConButton], pressed):
         if pressed:
-            if btn == ConButton.LEFT:
+            if ConButton.L3 in btn and ConButton.R3 in btn:
+                self.enter_update_mode()
+            elif ConButton.LEFT in btn:
                 self.synth.decrement_program()
-            elif btn == ConButton.RIGHT:
+            elif ConButton.RIGHT in btn:
                 self.synth.increment_program()
-            elif btn == ConButton.UP:
+            elif ConButton.UP in btn:
                 self.synth.increment_setting()
-            elif btn == ConButton.DOWN:
+            elif ConButton.DOWN in btn:
                 self.synth.decrement_setting()
-            elif btn == ConButton.A:
-                self.synth.rotate_setting()
-            elif btn == ConButton.B:
+            # elif ConButton.A in btn:
+            #     self.synth.rotate_setting()
+            elif ConButton.B in btn:
                 self.synth.exit_settings_mode()
                 self.substate = "SELECT"
-            elif btn == ConButton.X:
+            elif ConButton.X in btn:
                 self.synth.rotate_sf2()
-            elif btn == ConButton.Y:
+            elif ConButton.Y in btn:
                 self.synth.rotate_setting()
-            elif btn == ConButton.PLUS:
+            elif ConButton.PLUS in btn:
                 self.synth.save_preset()
                 self.synth.exit_settings_mode()
                 self.substate = "SELECT"
-            elif btn == ConButton.L:
+            elif ConButton.L in btn:
                 self.synth.toggle_breathmode()
-            elif btn == ConButton.HOME:
+            elif ConButton.HOME in btn:
                 self.synth.toggle_mode()
-            elif btn == ConButton.Z:
+            elif ConButton.Z in btn:
                 self.synth.panic_kill()
-            elif btn in (ConButton.MINUS, ConButton.SCRSH):
+            elif ConButton.MINUS in btn or ConButton.SCRSH in btn:
                 self.initiate_potential_shutdown()
         else:
-            if btn == ConButton.MINUS:
+            if ConButton.MINUS in btn:
                 self.handle_shutdown()
-            if btn == ConButton.SCRSH:
+            if ConButton.SCRSH in btn:
                 self.handle_shutdown(True)
 
     def initiate_potential_shutdown(self):
@@ -267,13 +272,13 @@ class RunState(State):
             screen.blit(game_icon, rect_game_icon)
             left_arrow = self.imgs_tri['left']
             right_arrow = self.imgs_tri['right']
+            screen.blit(self.font_breath, self.rect_font_breath)
             if self.substate == "SELECT":
                 left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2))
                 screen.blit(left_arrow, left_arrow_rect)
                 right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2))
                 screen.blit(right_arrow, right_arrow_rect)
             elif self.substate == 'SETTINGS':
-                screen.blit(self.font_breath, self.rect_font_breath)
                 screen.blit(self.font_home, self.rect_home)
                 left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2 + 43))
                 screen.blit(left_arrow, left_arrow_rect)
@@ -295,7 +300,7 @@ class RunState(State):
                 text_fx_name = SECONDARY_FONT.render(f"{current_effect.upper()}", True, 'white')
                 rect_fx_name = text_fx_name.get_rect(center=(190,93))
                 screen.blit(text_fx_name, rect_fx_name)
-                text_fx_swap = SECONDARY_FONT.render("(A)", True, 'white')
+                text_fx_swap = SECONDARY_FONT.render("(Y)", True, 'white')
                 rect_fx_swap = text_fx_swap.get_rect(center=(160,65))
                 screen.blit(text_fx_swap, rect_fx_swap)
                 pygame.draw.rect(screen, 'black', (180, 105, 20, 40))
@@ -337,5 +342,133 @@ class ShutdownState(State):
             pygame.quit()
             self.cleaned_up = True
             raise SystemExit
+
+class UpdateState(State):
+    def __init__(self, machine, synth, display):
+        self.machine = machine
+        self.synth = synth
+        self.display = display
+        self.first_update = True
+        self.wifi_check_initiatied = False
+        self.passed_wifi_check = None
+        self.changes_check_started = False
+        self.changes_available = None
+        self.initiated_git_pull = False
+        self.git_pull_succeeded = None
+
+        if SOUNDCUBE_MODE == "prod":
+            self.repo_dir = "/home/jacobrobertwest/soundcube"
+        else:
+            self.repo_dir = "/Users/jacob/Documents/SoundCube"
+    
+        self.version_text = SECONDARY_FONT.render(f"SOUNDCUBE v{SOUNDCUBE_VERSION}", True, 'black')
+        self.version_text_rect = self.version_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 70))
+        self.connection_text = SECONDARY_FONT.render(f"Testing for Wifi", True, 'black')
+        self.connection_text_rect = self.connection_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 55))
+        self.wifi_success_text = SECONDARY_FONT.render(f"Wifi Test Passed.", True, 'black')
+        self.wifi_success_text_rect = self.wifi_success_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 40))
+        self.wifi_fail_text = SECONDARY_FONT.render(f"Wifi Test FAILED. Y to retry, MINUS to reboot.", True, 'black')
+        self.wifi_fail_text_rect = self.wifi_fail_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 40))
+        self.changes_check_text = SECONDARY_FONT.render(f"Checking for latest updates...", True, 'black')
+        self.changes_check_text_rect = self.changes_check_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 25))
+        self.changes_found_text = SECONDARY_FONT.render(f"Update available. Press A to proceed.", True, 'black')
+        self.changes_found_text_rect = self.changes_found_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 10))
+        self.changes_not_found_text = SECONDARY_FONT.render(f"Already up to date. MINUS to reboot.", True, 'black')
+        self.changes_not_found_text_rect = self.changes_found_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 10))
+
+    def enter(self):
+        self.synth.stop()
+
+    def handle_input(self, action):
+        btn = action.c_button
+        pressed = action.pressed
+        if pressed:
+            if self.passed_wifi_check is not None:
+                if self.passed_wifi_check:
+                    if self.changes_available:
+                        if ConButton.A in btn:
+                            self.git_pull()
+                    if ConButton.MINUS in btn:
+                        self.reboot()
+                if self.passed_wifi_check == False:
+                    if ConButton.Y in btn:
+                        self.reset_wifi_test()
+                    elif ConButton.MINUS in btn:
+                        self.reboot()
+
+    def reset_wifi_test(self):
+        self.wifi_check_initiatied = False
+        self.passed_wifi_check = None
+
+    def reboot(self):
+        if SOUNDCUBE_MODE == "dev":
+            pygame.quit()
+            print("sudo reboot")
+            raise SystemExit
+        else:
+            pygame.quit()
+            subprocess.run(["sudo", "reboot"])
+        
+    def update(self, dt):
+        if self.first_update:
+            self.first_update = False
+            pass
+        else:
+            if not self.wifi_check_initiatied:
+                self.wifi_check_initiatied = True
+                self.passed_wifi_check = self.run_wifi_check()
+            else:
+                if self.passed_wifi_check:
+                    if not self.changes_check_started:
+                        self.changes_check_started = True
+                        self.changes_available = self.check_for_changes()
+    
+    def check_for_changes(self):
+        subprocess.run(
+            ["git", "fetch", "origin", "main"],
+            cwd=self.repo_dir,
+            check=True,
+            capture_output=True
+        )
+        result = subprocess.run(
+            ["git", "rev-list", "HEAD..origin/main", "--count"],
+            cwd=self.repo_dir,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        return int(result.stdout.strip()) > 0
+            
+    def run_wifi_check(self):
+        try:
+            socket.create_connection(("8.8.8.8", 53), timeout=2)
+            return True
+        except OSError:
+            return False
+        
+    def git_pull(self):
+        pass
+
+    def render(self, screen, event_happened):
+        if True:
+            screen.fill((40, 40, 40))
+            # background
+            pygame.draw.circle(
+                screen,
+                (255,255,255), 
+                (WIDTH / 2, HEIGHT / 2),
+                WIDTH / 2
+            )
+            screen.blit(self.version_text, self.version_text_rect)
+            screen.blit(self.connection_text, self.connection_text_rect)
+            if self.passed_wifi_check:
+                screen.blit(self.wifi_success_text, self.wifi_success_text_rect)
+                screen.blit(self.changes_check_text, self.changes_check_text_rect)
+                if self.changes_available == True:
+                    screen.blit(self.changes_found_text, self.changes_found_text_rect)
+                elif self.changes_available == False:
+                    screen.blit(self.changes_not_found_text, self.changes_not_found_text_rect)
+            elif self.passed_wifi_check == False:
+                screen.blit(self.wifi_fail_text, self.wifi_fail_text_rect)
 
 

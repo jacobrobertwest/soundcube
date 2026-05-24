@@ -7,6 +7,8 @@ class Controls:
         pygame.joystick.init()
         self.joystick = None
         self.keyboard_active = keyboard_active_flag
+        self.switch_button_mapping = CONT_SWITCH_BTN
+        self.keyboard_button_mapping = CONT_KEYBOARD
     
     def handle_event(self, event: pygame.event):
         if event.type == pygame.JOYDEVICEADDED:
@@ -37,19 +39,17 @@ class Controls:
         return None
 
         
-    def get_event_details(self, con_event_msg: ConEventMessage):
+    def get_event_details(self, con_event_msg: list[ConEventMessage]):
         active = []
-        if con_event_msg.has_button:
-            type = ConType.CONT_SWITCH
-            btn_mapping = CONT_SWITCH_BTN
-            if btn_mapping.get(con_event_msg.scancode):
-                active.append(btn_mapping.get(con_event_msg.scancode))
-        if con_event_msg.has_keypress:
-            type = ConType.KEYBOARD
-            btn_mapping = CONT_KEYBOARD
-            if btn_mapping.get(con_event_msg.scancode):
-                active.append(btn_mapping.get(con_event_msg.scancode))
-        return ConSignalMessage(type, active, con_event_msg.release) if len(active) > 0 else None
+        type = ConType.CONT_SWITCH if con_event_msg[0].has_button else ConType.KEYBOARD
+        for msg in con_event_msg:
+            if msg.has_button:
+                if self.switch_button_mapping.get(msg.scancode):
+                    active.append(self.switch_button_mapping.get(msg.scancode))
+            if msg.has_keypress:
+                if self.keyboard_button_mapping.get(msg.scancode):
+                    active.append(self.keyboard_button_mapping.get(msg.scancode))
+        return ConSignalMessage(type, active, msg.release) if active else None
 
     def get_axis_state(self, axis_mapping, threshold=0.95):
         if not self.joystick:

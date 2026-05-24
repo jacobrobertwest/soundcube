@@ -35,7 +35,10 @@ CONT_KEYBOARD = {
     45: ConButton.MINUS,
     46: ConButton.PLUS,
     15: ConButton.L,
-    11: ConButton.HOME
+    11: ConButton.HOME,
+    29: ConButton.Z,
+    30: ConButton.L3,
+    39: ConButton.R3
 }
 
 CONT_SWITCH_BTN_MAC = {

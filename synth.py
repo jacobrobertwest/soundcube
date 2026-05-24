@@ -1,8 +1,9 @@
-import subprocess
-import threading
 from settings import *
 
 class Synth:
+    def __init__(self, soundcube_runmode):
+        self.runmode = soundcube_runmode
+
     def start(self):
         print("Synth starting...")
         self.sf_folder = 'files/sf2'
@@ -37,7 +38,8 @@ class Synth:
         self.selected_effect_index = 0
         self.selected_fx_icon = self.fx_icons[self.selected_effect_index]
         self.selected_fx_meta_map = self.fx_dict[self.effects[self.selected_effect_index]]
-        self.run_synth() #uncomment in prod
+        if self.runmode == 'prod':
+            self.run_synth()
         return True
     
     def run_synth(self):

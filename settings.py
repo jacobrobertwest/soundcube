@@ -4,10 +4,17 @@ import glob
 import os
 import json
 from copy import deepcopy
+import subprocess
+import threading
+import socket
 
 pygame.display.init()
 pygame.joystick.init()
 pygame.font.init()
+
+SOUNDCUBE_MODE = os.getenv("SOUNDCUBE_MODE", "prod")
+
+SOUNDCUBE_VERSION = '1.1.0'
 
 PRIMARY_FONT_FP = 'files/font/Futura.otf'
 GAMECUBE_FONT_FP = 'files/font/GameCube.ttf'
@@ -125,6 +132,8 @@ class ConButton(Enum):
     L = 11
     SCRSH = 12
     HOME = 13
+    L3 = 14
+    R3 = 15
     
 
 class ConEventMessage:
