@@ -374,7 +374,11 @@ class UpdateState(State):
         self.changes_found_text = SECONDARY_FONT.render(f"Update available. Press A to proceed.", True, 'black')
         self.changes_found_text_rect = self.changes_found_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 10))
         self.changes_not_found_text = SECONDARY_FONT.render(f"Already up to date. MINUS to reboot.", True, 'black')
-        self.changes_not_found_text_rect = self.changes_found_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 10))
+        self.changes_not_found_text_rect = self.changes_not_found_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 - 10))
+        self.update_pass_text = SECONDARY_FONT.render(f"Update succeeded. MINUS to reboot.", True, 'black')
+        self.update_pass_text_rect = self.update_pass_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 5))
+        self.update_fail_text = SECONDARY_FONT.render(f"Update failed:", True, 'black')
+        self.update_fail_text_rect = self.update_fail_text.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 5))
 
     def enter(self):
         self.synth.stop()
@@ -387,7 +391,7 @@ class UpdateState(State):
                 if self.passed_wifi_check:
                     if self.changes_available:
                         if ConButton.A in btn:
-                            self.git_pull()
+                            self.git_pull_succeeded = self.git_pull()
                     if ConButton.MINUS in btn:
                         self.reboot()
                 if self.passed_wifi_check == False:
@@ -447,7 +451,17 @@ class UpdateState(State):
             return False
         
     def git_pull(self):
-        pass
+        try:
+            subprocess.run(
+                ["git", "pull", "origin", "main"],
+                cwd=self.repo_dir,
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            return True
+        except subprocess.SubprocessError:
+            return False
 
     def render(self, screen, event_happened):
         if True:
@@ -466,6 +480,10 @@ class UpdateState(State):
                 screen.blit(self.changes_check_text, self.changes_check_text_rect)
                 if self.changes_available == True:
                     screen.blit(self.changes_found_text, self.changes_found_text_rect)
+                    if self.git_pull_succeeded == True:
+                        screen.blit(self.update_pass_text, self.update_pass_text_rect)
+                    elif self.git_pull_succeeded == False:
+                        screen.blit(self.update_fail_text, self.update_fail_text_rect)
                 elif self.changes_available == False:
                     screen.blit(self.changes_not_found_text, self.changes_not_found_text_rect)
             elif self.passed_wifi_check == False:
