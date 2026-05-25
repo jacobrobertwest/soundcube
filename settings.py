@@ -14,7 +14,7 @@ pygame.font.init()
 
 SOUNDCUBE_MODE = os.getenv("SOUNDCUBE_MODE", "prod")
 
-SOUNDCUBE_VERSION = '1.1.3'
+SOUNDCUBE_VERSION = '1.1.4'
 
 PRIMARY_FONT_FP = 'files/font/Futura.otf'
 GAMECUBE_FONT_FP = 'files/font/GameCube.ttf'

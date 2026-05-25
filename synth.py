@@ -26,6 +26,8 @@ class Synth:
             self.presets = json.load(f)
 
         self.num_presets = len(self.presets)
+        self.on_last_preset = False
+        self.presets_maxed_out = self.num_presets == 99
         self.sf2_files = sorted(glob.glob(os.path.join("files", "sf2", "*.sf2")))
         self.fs_terminal = None
         self.fx_dict = FX_LIBRARY
@@ -154,6 +156,7 @@ class Synth:
             self.send_command("setbreathmode 0 0 0 0")
         self.enforce_active_elements()
         self.enforce_fx()
+        self.on_last_preset = self.loaded_preset_num == self.num_presets
 
     def enforce_fx(self):
         for effect in self.active_fx_chain:
@@ -177,6 +180,21 @@ class Synth:
     def decrement_preset(self):
         new_loaded_preset_num = (self.loaded_preset_num - 2) % self.num_presets + 1
         self.handle_preset_change(new_loaded_preset_num)
+    
+    def extend_preset(self):
+        if self.num_presets < 99:
+            self.loaded_preset_num += 1
+            self.presets[str(self.loaded_preset_num)] = {}
+            self.presets[str(self.loaded_preset_num)]['sf2'] = self.active_sf2
+            self.presets[str(self.loaded_preset_num)]['bank'] = self.active_bank
+            self.presets[str(self.loaded_preset_num)]['inst'] = self.active_inst
+            self.presets[str(self.loaded_preset_num)]['breathmode'] = self.active_breathmode
+            self.presets[str(self.loaded_preset_num)]['poly_mode'] = self.active_poly_mode
+            self.presets[str(self.loaded_preset_num)]['fx'] = deepcopy(self.active_fx_chain)
+            with open(self.presets_file, "w", encoding="utf-8") as f:
+                json.dump(self.presets, f, indent=2, separators=(",", ": "))
+            self.num_presets = len(self.presets)
+            self.presets_maxed_out = self.num_presets == 99
 
     def panic_kill(self):
         # control change | channel 0 | cc123 (kill all notes) | value (not used for this CC, but required)

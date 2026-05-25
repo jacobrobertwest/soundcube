@@ -121,6 +121,8 @@ class RunState(State):
             "left": pygame.transform.rotate(self.img_tri, 90),
             "right": pygame.transform.rotate(self.img_tri, 270)
         }
+        self.img_plus = pygame.image.load('files/plus.png').convert_alpha()
+        self.rect_plus = self.img_plus.get_rect(center=(194,163))
         self.minus_pressed_at = None
         
     def handle_input(self, action: ConSignalMessage):
@@ -144,6 +146,11 @@ class RunState(State):
                 self.synth.toggle_breathmode()
             elif ConButton.Z in btn:
                 self.synth.panic_kill()
+            elif ConButton.PLUS in btn:
+                if self.synth.on_last_preset and not self.synth.presets_maxed_out:
+                    self.synth.extend_preset()
+                    self.synth.enter_settings_mode()
+                    self.substate = "SETTINGS"
             elif ConButton.MINUS in btn or ConButton.SCRSH in btn:
                 self.initiate_potential_shutdown()
         else:
@@ -219,6 +226,7 @@ class RunState(State):
         self.inst_num_shown = self.synth.active_inst
         self.breath_mode_shown = self.synth.active_breathmode
         self.poly_mode_shown = self.synth.active_poly_mode
+        self.extender_plus_shown = self.synth.on_last_preset and not self.synth.presets_maxed_out
         self.bg_color_shown = (40, 40, 40, 255) if self.substate == 'SELECT' else (60, 60, 60, 255)
     
     def render(self, screen, event_happened):
@@ -278,6 +286,8 @@ class RunState(State):
                 screen.blit(left_arrow, left_arrow_rect)
                 right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2))
                 screen.blit(right_arrow, right_arrow_rect)
+                if self.extender_plus_shown:
+                    screen.blit(self.img_plus, self.rect_plus)
             elif self.substate == 'SETTINGS':
                 screen.blit(self.font_home, self.rect_home)
                 left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2 + 43))
