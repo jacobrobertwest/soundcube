@@ -136,6 +136,10 @@ class ConButton(Enum):
     R3 = 15
     ZL = 16
     ZR = 17
+    DUP = 18
+    DDOWN = 19
+    DLEFT = 20
+    DRIGHT = 21
     
 
 class ConEventMessage:

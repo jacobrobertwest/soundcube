@@ -60,6 +60,7 @@ class Controls:
             axpos = self.joystick.get_axis(axis)
             if abs(axpos) > threshold:
                 z = 0 if axpos < 0 else 1
+                # print(f'{axis}: {z}')
                 btn = axis_mapping[axis][z]
                 if btn != "":
                     active.append(btn)
