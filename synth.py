@@ -49,7 +49,8 @@ class Synth:
         cmd = [
             "fluidsynth",
             "-a", "alsa",
-            "-o", "midi.autoconnect=True"
+            "-o", "midi.autoconnect=True",
+            "-o", "synth.cpu-cores=2"
         ]
         cmd.append(self.sf2_files[0])
         cmd.append("files/bootup.mid")
@@ -79,7 +80,7 @@ class Synth:
         for f in self.sf2_files[1:]:
             self.send_command(f"load {f}")
         self.send_command("fonts")
-        self.send_command("set synth.polyphony 8")
+        self.send_command("set synth.polyphony 16")
         self.send_command("router_clear")
         self.send_command("router_begin cc")
         self.send_command("router_end")

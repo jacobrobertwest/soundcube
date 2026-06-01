@@ -1,5 +1,10 @@
 SOUNDCUBE
-Version 1.1.4
+Version 1.1.5
+
+Update 1.1.5
+* Added 3 new string soundfonts
+* Upped polyphony to 16
+* Added 2 cpu cores
 
 Update 1.1.4
 * Added in ability to extend preset bank (capped out at 99) when on last preset by pressing (+)

@@ -1,7 +1,7 @@
 import os
 import json
 from sf2utils.sf2parse import Sf2File
-fi = '99_custom'
+fi = '08_string'
 sf2_path = f"files/sf2/{fi}.sf2"
 output_path = f"files/sf2_meta/{fi}.json"
 
