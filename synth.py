@@ -50,7 +50,7 @@ class Synth:
             "fluidsynth",
             "-a", "alsa",
             "-o", "midi.autoconnect=True",
-            "-o", "synth.cpu-cores=2"
+            "-o", "synth.cpu-cores=4"
         ]
         cmd.append(self.sf2_files[0])
         cmd.append("files/bootup.mid")
