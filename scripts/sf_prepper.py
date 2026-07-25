@@ -1,7 +1,7 @@
 import os
 import json
 from sf2utils.sf2parse import Sf2File
-fi = '08_string'
+fi = '09_kkslider'
 sf2_path = f"files/sf2/{fi}.sf2"
 output_path = f"files/sf2_meta/{fi}.json"
 
