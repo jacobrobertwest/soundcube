@@ -4,11 +4,33 @@ from settings import *
 # Base State and StateMachine
 # -------------------------
 class State:
+    # Loop rate this state wants. The UI is fine at 30, but drum pads need a much
+    # finer poll than a 33ms frame allows.
+    tick_hz = 30
+    # Whether directional axes fire once per flick (edges) or repeat while held.
+    uses_axis_edges = False
+
     def enter(self): pass
     def exit(self): pass
     def handle_input(self, action: ConSignalMessage): pass
     def update(self, dt): pass
-    def render(self, screen, event_happened): pass
+    # Returning False means "nothing changed, don't push a frame to the LCD".
+    def render(self, screen, event_happened): return False
+
+def perform_system_shutdown(machine, synth, display):
+    """Power the device off.
+
+    In dev this must never power off the developer's own machine - SCRSH is mapped
+    on the dev controller too, and a 3-second hold would otherwise run
+    `sudo shutdown -h now` on a laptop. Mirrors UpdateState.reboot's behaviour.
+    """
+    display.off()
+    if SOUNDCUBE_MODE == "dev":
+        print("[DEV] suppressed: sudo shutdown -h now")
+        machine.change(ShutdownState(machine, synth, display))
+    else:
+        os.system("sudo shutdown -h now")
+
 
 class StateMachine:
     def __init__(self, initial_state: State):
@@ -123,17 +145,27 @@ class RunState(State):
         }
         self.img_plus = pygame.image.load('files/plus.png').convert_alpha()
         self.rect_plus = self.img_plus.get_rect(center=(194,163))
+        self.font_drums = SECONDARY_FONT.render("(Y)DRUM", True, 'white')
+        self.rect_drums = self.font_drums.get_rect(center=(56,48))
         self.minus_pressed_at = None
+
+    def enter(self):
+        # Also runs when coming back from drum mode, so force a full repaint.
+        self.needs_initial_display = True
         
     def handle_input(self, action: ConSignalMessage):
         if self.substate == "SELECT":
-            self.handle_patch_select(action.c_button, action.pressed)
+            self.handle_patch_select(action)
         elif self.substate == "SETTINGS":
-            self.handle_settings(action.c_button, action.pressed)
+            self.handle_settings(action)
 
-    def handle_patch_select(self, btn: list[ConButton], pressed):
+    def handle_patch_select(self, action: ConSignalMessage):
+        btn = action.c_button
+        pressed = action.pressed
         if pressed:
-            if ConButton.L3 in btn and ConButton.R3 in btn:
+            # Chords read the held set, so holding one stick click and then pressing
+            # the other works rather than requiring both in the same event batch.
+            if ConButton.L3 in action.held and ConButton.R3 in action.held:
                 self.enter_update_mode()
             elif ConButton.LEFT in btn:
                 self.synth.decrement_preset()
@@ -142,6 +174,8 @@ class RunState(State):
             elif ConButton.A in btn:
                 self.synth.enter_settings_mode()
                 self.substate = "SETTINGS"
+            elif ConButton.Y in btn:
+                self.enter_drum_mode()
             elif ConButton.L in btn:
                 self.synth.toggle_breathmode()
             elif ConButton.Z in btn:
@@ -162,9 +196,20 @@ class RunState(State):
     def enter_update_mode(self):
         self.machine.change(UpdateState(self.machine, self.synth, self.display))
 
-    def handle_settings(self, btn: list[ConButton], pressed):
+    def enter_drum_mode(self):
+        if not self.synth.has_drum_kits():
+            print("No drum kits available - skipping drum mode")
+            return
+        # Hand over this instance so returning is free: no reloading of the five
+        # PNGs and text surfaces built in __init__.
+        self.machine.change(
+            PerformState(self.machine, self.synth, self.display, self))
+
+    def handle_settings(self, action: ConSignalMessage):
+        btn = action.c_button
+        pressed = action.pressed
         if pressed:
-            if ConButton.L3 in btn and ConButton.R3 in btn:
+            if ConButton.L3 in action.held and ConButton.R3 in action.held:
                 self.enter_update_mode()
             elif ConButton.LEFT in btn:
                 self.synth.decrement_program()
@@ -212,8 +257,7 @@ class RunState(State):
                 if not shutdown_system:
                     self.machine.change(ShutdownState(self.machine, self.synth, self.display))
                 else:
-                    self.display.off()
-                    os.system("sudo shutdown -h now")
+                    perform_system_shutdown(self.machine, self.synth, self.display)
             else:
                 self.minus_pressed_at = None
                 print("didnt shutdown")
@@ -286,6 +330,8 @@ class RunState(State):
                 screen.blit(left_arrow, left_arrow_rect)
                 right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2))
                 screen.blit(right_arrow, right_arrow_rect)
+                if self.synth.has_drum_kits():
+                    screen.blit(self.font_drums, self.rect_drums)
                 if self.extender_plus_shown:
                     screen.blit(self.img_plus, self.rect_plus)
             elif self.substate == 'SETTINGS':
@@ -353,6 +399,10 @@ class ShutdownState(State):
             self.cleaned_up = True
             raise SystemExit
 
+    def render(self, screen, event_happened):
+        # Nothing to show; update() exits on the next tick anyway.
+        return False
+
 class UpdateState(State):
     def __init__(self, machine, synth, display):
         self.machine = machine
@@ -365,6 +415,9 @@ class UpdateState(State):
         self.changes_available = None
         self.initiated_git_pull = False
         self.git_pull_succeeded = None
+        # This screen advances on its own (wifi -> check -> result) with no input to
+        # key off, so it tracks its own content signature to know when to redraw.
+        self.last_render_signature = None
 
         if SOUNDCUBE_MODE == "prod":
             self.repo_dir = "/home/jacobrobertwest/soundcube"
@@ -474,12 +527,18 @@ class UpdateState(State):
             return False
 
     def render(self, screen, event_happened):
+        signature = (self.passed_wifi_check, self.changes_available,
+                     self.git_pull_succeeded)
+        if signature == self.last_render_signature:
+            return False
+        self.last_render_signature = signature
+
         if True:
             screen.fill((40, 40, 40))
             # background
             pygame.draw.circle(
                 screen,
-                (255,255,255), 
+                (255,255,255),
                 (WIDTH / 2, HEIGHT / 2),
                 WIDTH / 2
             )
@@ -498,5 +557,327 @@ class UpdateState(State):
                     screen.blit(self.changes_not_found_text, self.changes_not_found_text_rect)
             elif self.passed_wifi_check == False:
                 screen.blit(self.wifi_fail_text, self.wifi_fail_text_rect)
+            return True
+        return False
+
+
+# -------------------------
+# Drum Performance State
+# -------------------------
+class PerformState(State):
+    """Play a drum kit with the gamepad alone, no MIDI controller attached.
+
+    Ten buttons are pads. The D-pad stays navigation, so kits and velocity change
+    without leaving play. Deliberately does not redraw on a hit: a full frame is
+    ~38ms of SPI clocking and would badly jitter the timing of everything after it.
+    """
+    tick_hz = 120           # ~8ms input granularity rather than 33ms
+    uses_axis_edges = True  # one step per flick, not a repeat while deflected
+
+    COL_X = (74, 166)
+    ROW_Y = (106, 125, 144, 163, 182)
+    ICON_Y = 32
+    HEADER_Y = 68
+    SUB_Y = 88
+    FOOTER1_Y = 202
+    FOOTER2_Y = 220
+    HEADER_MAX_W = 196
+    SAVED_MESSAGE_MS = 1500
+
+    def __init__(self, machine, synth, display, return_state):
+        self.machine = machine
+        self.synth = synth
+        self.display = display
+        self.return_state = return_state
+        self.substate = "PLAY"
+        self.needs_initial_display = True
+        self.dirty = False
+        self.selected_pad = 0
+        self.saved_at = None
+        # note -> earliest tick at which its noteoff may be sent
+        self.note_gate = {}
+        # notes whose pad is released but whose minimum gate hasn't elapsed
+        self.pending_release = set()
+        # pad button -> the note it actually triggered, after resolution
+        self.sounding = {}
+        self.minus_pressed_at = None
+        self.press_buffer = 3000
+
+        self.text_cache = {}
+        self.pad_surfaces = []
+        self.rebuild_labels()
+
+    def enter(self):
+        self.synth.enter_drum_mode()
+        self.rebuild_labels()
+
+    def exit(self):
+        # Nothing may be left hanging when the melodic patch comes back.
+        self.all_notes_off()
+        self.synth.exit_drum_mode()
+
+    # -------------------------
+    # Label cache
+    # -------------------------
+    def _text(self, message, color='white', font=None):
+        """Font rendering is far too slow to do per frame, and pad labels only
+        change on a kit or binding change."""
+        font = font or SECONDARY_FONT
+        key = (id(font), message, str(color))
+        surface = self.text_cache.get(key)
+        if surface is None:
+            surface = font.render(message, True, color)
+            self.text_cache[key] = surface
+        return surface
+
+    def _fit_header(self, message):
+        """Kit names run to 20 characters. Drop to the smaller face rather than
+        cutting a word in half, and only trim as a last resort."""
+        for font in (PRIMARY_FONT, SECONDARY_FONT):
+            surface = self._text(message, 'white', font)
+            if surface.get_width() <= self.HEADER_MAX_W:
+                return surface
+        trimmed = message
+        while len(trimmed) > 4:
+            trimmed = trimmed[:-1]
+            surface = self._text(trimmed + '.', 'white', SECONDARY_FONT)
+            if surface.get_width() <= self.HEADER_MAX_W:
+                return surface
+        return self._text(message[:8], 'white', SECONDARY_FONT)
+
+    def rebuild_labels(self):
+        kit = self.synth.active_drum_kit()
+        total = len(self.synth.drum_kits)
+        index = self.synth.selected_kit_index + 1 if total else 0
+
+        self.header = self._fit_header(
+            (kit['name'] if kit else 'NO KITS').upper())
+        self.header_rect = self.header.get_rect(center=(WIDTH / 2, self.HEADER_Y))
+        self.subheader = self._text(f"KIT {index}/{total}")
+        self.subheader_rect = self.subheader.get_rect(center=(WIDTH / 2, self.SUB_Y))
+        self.icon = self.synth.drum_kit_icon()
+
+        self.pad_surfaces = []
+        for i, button in enumerate(PAD_BUTTONS):
+            # Show what will actually sound, not what is stored: a binding can
+            # point at a note this kit doesn't populate.
+            note = self.synth.resolve_drum_note(self.synth.pad_note(button.name))
+            surface = self._text(f"{button.name}:{drum_label(note, short=True)}")
+            centre = (self.COL_X[i // len(self.ROW_Y)], self.ROW_Y[i % len(self.ROW_Y)])
+            self.pad_surfaces.append((surface, surface.get_rect(center=centre)))
+        self.dirty = True
+
+    # -------------------------
+    # Input
+    # -------------------------
+    def handle_input(self, action: ConSignalMessage):
+        buttons = action.c_button
+        if not buttons:
+            return
+        button = buttons[0]
+
+        if SOUNDCUBE_DEBUG:
+            kit = self.synth.active_drum_kit()
+            print(f"[PAD] {button.name:5s} {'DOWN' if action.pressed else 'up  '} "
+                  f"{self.substate:5s} kit={self.synth.selected_kit_index}"
+                  f" '{kit['name'] if kit else '-'}' src={action.c_type.name}")
+
+        if action.pressed:
+            if button in PAD_BUTTONS:
+                self.hit_pad(button)
+            elif button in (ConButton.LEFT, ConButton.RIGHT,
+                            ConButton.UP, ConButton.DOWN):
+                self.handle_direction(button)
+            elif button == ConButton.PLUS:
+                self.handle_plus()
+            elif button == ConButton.HOME:
+                self.handle_home()
+            elif button in (ConButton.MINUS, ConButton.SCRSH):
+                self.initiate_potential_shutdown()
+        else:
+            if button in PAD_BUTTONS:
+                self.release_pad(button)
+            elif button == ConButton.MINUS:
+                self.handle_shutdown()
+            elif button == ConButton.SCRSH:
+                self.handle_shutdown(True)
+
+    def hit_pad(self, button):
+        note = self.synth.resolve_drum_note(self.synth.pad_note(button.name))
+        if self.substate == "EDIT":
+            index = PAD_BUTTONS.index(button)
+            if index != self.selected_pad:
+                self.selected_pad = index
+                self.dirty = True
+        self.trigger(note)
+        self.sounding[button] = note
+
+    def trigger(self, note):
+        self.note_gate[note] = pygame.time.get_ticks() + DRUM_MIN_GATE_MS
+        self.pending_release.discard(note)
+        self.synth.drum_noteon(note)
+
+    def release_pad(self, button):
+        note = self.sounding.pop(button, None)
+        if note is None:
+            return
+        # Two pads can be bound to the same drum; don't cut it while one is held.
+        if note in self.sounding.values():
+            return
+        if pygame.time.get_ticks() >= self.note_gate.get(note, 0):
+            self.send_noteoff(note)
+        else:
+            # Too soon - update() will send it once the gate elapses, so a fast
+            # tap isn't cut off mid-transient.
+            self.pending_release.add(note)
+
+    def send_noteoff(self, note):
+        self.synth.drum_noteoff(note)
+        self.note_gate.pop(note, None)
+        self.pending_release.discard(note)
+
+    def all_notes_off(self):
+        for note in list(self.note_gate):
+            self.synth.drum_noteoff(note)
+        self.note_gate.clear()
+        self.pending_release.clear()
+        self.sounding.clear()
+
+    def change_kit(self, delta):
+        # A select while notes are ringing would leave them hanging on the old kit.
+        self.all_notes_off()
+        kit = self.synth.cycle_drum_kit(delta)
+        if SOUNDCUBE_DEBUG:
+            print(f"[KIT] changed by {delta:+d} -> #{self.synth.selected_kit_index} "
+                  f"'{kit['name'] if kit else '-'}' (sf2 {kit['sf2'] if kit else '-'})")
+        self.rebuild_labels()
+
+    def handle_direction(self, button):
+        """In PLAY, left/right swaps kit and up/down sets velocity.
+
+        In EDIT every direction moves through the kit's drums instead. Reaching for
+        left/right to pick the next drum must not swap the whole kit out from under
+        you - which is precisely what it used to do.
+        """
+        if self.substate == "EDIT":
+            forward = button in (ConButton.RIGHT, ConButton.UP)
+            self.shift_selected_note(1 if forward else -1)
+            return
+        if button == ConButton.LEFT:
+            self.change_kit(-1)
+        elif button == ConButton.RIGHT:
+            self.change_kit(1)
+        else:
+            self.synth.adjust_velocity(
+                DRUM_VELOCITY_STEP if button == ConButton.UP else -DRUM_VELOCITY_STEP)
+            self.dirty = True
+
+    def shift_selected_note(self, direction):
+        """Walk the selected pad through the notes this kit actually populates,
+        so the editor never offers a silent choice."""
+        kit = self.synth.active_drum_kit()
+        if kit is None:
+            return
+        notes = kit['notes']
+        button = PAD_BUTTONS[self.selected_pad]
+        current = self.synth.resolve_drum_note(self.synth.pad_note(button.name))
+        try:
+            index = notes.index(current)
+        except ValueError:
+            index = 0
+        note = notes[(index + direction) % len(notes)]
+        self.synth.set_pad_note(button.name, note)
+        self.rebuild_labels()
+        self.trigger(note)
+        self.pending_release.add(note)  # audition, released by update()
+
+    def handle_plus(self):
+        if self.substate == "PLAY":
+            self.substate = "EDIT"
+        else:
+            if self.synth.save_kits():
+                self.saved_at = pygame.time.get_ticks()
+        self.dirty = True
+
+    def handle_home(self):
+        if self.substate == "EDIT":
+            self.substate = "PLAY"
+            self.dirty = True
+        else:
+            self.machine.change(self.return_state)
+
+    def initiate_potential_shutdown(self):
+        self.minus_pressed_at = pygame.time.get_ticks()
+        self.press_buffer = 3000
+
+    def handle_shutdown(self, shutdown_system=False):
+        if self.minus_pressed_at:
+            if pygame.time.get_ticks() - self.minus_pressed_at > self.press_buffer:
+                if not shutdown_system:
+                    self.machine.change(
+                        ShutdownState(self.machine, self.synth, self.display))
+                else:
+                    perform_system_shutdown(self.machine, self.synth, self.display)
+            else:
+                self.minus_pressed_at = None
+
+    def update(self, dt):
+        now = pygame.time.get_ticks()
+        if self.pending_release:
+            for note in [n for n in self.pending_release
+                         if now >= self.note_gate.get(n, 0)]:
+                self.send_noteoff(note)
+        if self.saved_at and now - self.saved_at >= self.SAVED_MESSAGE_MS:
+            self.saved_at = None
+            self.dirty = True
+
+    # -------------------------
+    # Render
+    # -------------------------
+    def render(self, screen, event_happened):
+        # event_happened is ignored on purpose. A pad hit is an event but must not
+        # cost a full-frame SPI push; only real content changes redraw.
+        if not (self.needs_initial_display or self.dirty):
+            return False
+
+        editing = self.substate == "EDIT"
+        screen.fill((0, 0, 0))
+        pygame.draw.circle(
+            screen,
+            (52, 44, 30) if editing else (32, 50, 38),
+            (WIDTH / 2, HEIGHT / 2),
+            WIDTH / 2
+        )
+
+        if self.icon is not None:
+            screen.blit(self.icon, self.icon.get_rect(center=(WIDTH / 2, self.ICON_Y)))
+        screen.blit(self.header, self.header_rect)
+        screen.blit(self.subheader, self.subheader_rect)
+
+        for i, (surface, rect) in enumerate(self.pad_surfaces):
+            if editing and i == self.selected_pad:
+                # Outline rather than a fill, so the white label stays readable.
+                pygame.draw.rect(screen, (235, 200, 60), rect.inflate(10, 6),
+                                 width=2, border_radius=4)
+            screen.blit(surface, rect)
+
+        if editing:
+            button = PAD_BUTTONS[self.selected_pad]
+            note = self.synth.resolve_drum_note(self.synth.pad_note(button.name))
+            # The angle brackets advertise that the directions move through drums.
+            line_one = self._text(f"< #{note} {drum_label(note)} >"[:26])
+            line_two = self._text("(+)SAVE  (H)BACK")
+        else:
+            line_one = self._text(f"VEL {self.synth.drum_velocity}")
+            line_two = self._text("(+)EDIT  (H)EXIT")
+        if self.saved_at:
+            line_two = self._text("SAVED", (235, 200, 60))
+
+        screen.blit(line_one, line_one.get_rect(center=(WIDTH / 2, self.FOOTER1_Y)))
+        screen.blit(line_two, line_two.get_rect(center=(WIDTH / 2, self.FOOTER2_Y)))
+
+        self.needs_initial_display = False
+        self.dirty = False
+        return True
 
 

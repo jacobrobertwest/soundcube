@@ -1,3 +1,8 @@
 __pycache__/
 files/presets.json
+files/presets.json.tmp
+files/presets.json.bak
+files/kits.json
+files/kits.json.tmp
+files/kits.json.bak
 .DS_Store

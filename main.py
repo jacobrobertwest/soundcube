@@ -46,32 +46,49 @@ def main(soundcube_mode):
             if msg:
                 messages.append(msg)
 
-        if messages:
-            c_ed = controls.get_event_details(messages)
-            if c_ed:
-                # c_ed.to_string()
-                machine.handle_input(c_ed)
+        # Dispatch button events before anything renders, so a drum pad's noteon is
+        # never sitting behind a screen redraw.
+        actions_fired = 0
+        for c_ed in controls.get_event_details(messages):
+            # c_ed.to_string()
+            machine.handle_input(c_ed)
+            actions_fired += 1
+
+        # Triggers that report as axes rather than buttons are polled, and dispatched
+        # here so a drum pad bound to one still fires before anything renders.
+        for c_te in controls.get_trigger_events(CONT_SWITCH_TRIGGER_ACTIVE):
+            machine.handle_input(c_te)
+            actions_fired += 1
 
         # axis navigation (polled)
-        axis_actions = controls.get_axis_state(CONT_SWITCH_AXIS)
-        for action in axis_actions:
-            if repeater.allow(action):
-                c_aa = ConSignalMessage(ConType.CONT_SWITCH, [action])
-                machine.handle_input(c_aa)
+        if machine.state.uses_axis_edges:
+            # One step per flick: used where a direction means "advance", not "hold
+            # to repeat", so it bypasses the repeater entirely.
+            for action in controls.get_axis_edges(CONT_SWITCH_AXIS):
+                machine.handle_input(ConSignalMessage(ConType.CONT_SWITCH, [action]))
+                actions_fired += 1
+        else:
+            for action in controls.get_axis_state(CONT_SWITCH_AXIS):
+                if repeater.allow(action):
+                    c_aa = ConSignalMessage(ConType.CONT_SWITCH, [action])
+                    machine.handle_input(c_aa)
+                    actions_fired += 1
 
-        dt = clock.tick(30)
+        # States choose their own loop rate; drum mode needs a far finer poll than
+        # the 33ms the UI is happy with.
+        dt = clock.tick(machine.state.tick_hz)
         machine.update(dt)
-        has_event = True if len(messages) > 0 or len(axis_actions) > 0 else False
-        needs_display_render = machine.render(screen, has_event)
-        
-        # render to the connected LCD display
-        # if needs_display_render:
-        #     display.render(screen)
-        #     pygame.display.flip()
-    
-        display.render(screen)
-        pygame.display.flip()
-        
+
+        # Counting dispatched actions rather than raw deflection means a held stick
+        # that the repeater is throttling doesn't force a redraw every frame.
+        needs_display_render = machine.render(screen, actions_fired > 0)
+
+        # render to the connected LCD display. Pushing a frame is ~115KB over SPI
+        # (~38ms at 24MHz), so it only happens when something actually changed.
+        if needs_display_render:
+            display.render(screen)
+            pygame.display.flip()
+
         # pygame.display.set_caption(f"SoundCube {pygame.mouse.get_pos()}")
 if __name__ == '__main__':
     try:
