@@ -4,6 +4,7 @@ from controller_mappings import *
 from repeater import *
 from state import *
 from synth import *
+import midi_devices
 
 if SOUNDCUBE_MODE == "dev":
     from dummy import *
@@ -27,6 +28,8 @@ def main(soundcube_mode):
     synth = Synth(soundcube_mode)
     display = Display()
 
+    print(f"[MIDI] {midi_devices.describe()}")
+
     # initialize state machine
     boot_state = BootState(None, synth, display, soundcube_mode)
     machine = StateMachine(boot_state)
@@ -35,6 +38,8 @@ def main(soundcube_mode):
 
     # main game loop
     done = False
+    midi_device_count = -1        # forces a poll on the first iteration
+    last_midi_poll = -MIDI_POLL_MS
     while not done:
         messages = []
 
@@ -73,6 +78,23 @@ def main(soundcube_mode):
                     c_aa = ConSignalMessage(ConType.CONT_SWITCH, [action])
                     machine.handle_input(c_aa)
                     actions_fired += 1
+
+        # Watch for controllers appearing or disappearing. Polled about once a
+        # second rather than per frame: a /proc read is cheap but at 120Hz it would
+        # be pure waste, and it must never sit in the drum-pad path.
+        now = pygame.time.get_ticks()
+        if now - last_midi_poll >= MIDI_POLL_MS:
+            last_midi_poll = now
+            connected = midi_devices.device_count()
+            if connected != midi_device_count:
+                midi_device_count = connected
+                print(f"[MIDI] {connected} controller(s) connected")
+                if connected >= 2:
+                    midi_devices.route_second_device()
+                if synth.set_dual_mode(connected >= 2):
+                    # The voice readout appears or disappears, so force a repaint.
+                    if hasattr(machine.state, 'needs_initial_display'):
+                        machine.state.needs_initial_display = True
 
         # States choose their own loop rate; drum mode needs a far finer poll than
         # the 33ms the UI is happy with.

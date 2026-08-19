@@ -11,6 +11,14 @@ class Synth:
         self.selected_kit_index = 0
         self.drum_velocity = DRUM_VELOCITY_DEFAULT
         self.pad_notes = deepcopy(DEFAULT_PAD_NOTES)
+        # Second MIDI controller. dual_mode is driven by how many controllers are
+        # actually connected; when it is False nothing about the command stream
+        # differs from single-controller operation.
+        self.dual_mode = False
+        self.editing_voice = 1
+        self.voice2 = None
+        self.voice2_preset_name = ""
+        self.voice2_icon = None
 
     def start(self):
         print("Synth starting...")
@@ -76,7 +84,10 @@ class Synth:
             "fluidsynth",
             "-a", self.AUDIO_DRIVERS.get(sys.platform, "alsa"),
             "-o", "midi.autoconnect=True",
-            "-o", "synth.cpu-cores=4"
+            "-o", "synth.cpu-cores=4",
+            # Startup-only, so always asked for: a controller plugged in later
+            # needs fluidsynth's second input port to already exist.
+            "-o", f"synth.midi-channels={MIDI_CHANNELS}"
         ]
         cmd.append(self.sf2_files[0])
         cmd.append("files/bootup.mid")
@@ -473,6 +484,126 @@ class Synth:
             chain[effect] = {'value': value, 'params': entry.get('params')}
         return chain
 
+    # -------------------------
+    # Second voice (second MIDI controller)
+    # -------------------------
+    def _valid_patch(self, sf2, bank, inst):
+        """Coerce a soundfont/bank/program triple to one that actually exists.
+
+        Preset data is user-writable and soundfonts can be replaced, so a saved
+        triple may point at nothing. Snapping beats raising in the middle of render.
+        """
+        try:
+            sf2 = int(sf2)
+        except (TypeError, ValueError):
+            sf2 = 1
+        usable = [i for i, meta in enumerate(self.meta_maps, start=1) if meta]
+        if not usable:
+            return 1, 0, 0
+        if sf2 not in usable:
+            sf2 = usable[0]
+        meta = self.meta_maps[sf2 - 1]
+        try:
+            key = (int(bank), int(inst))
+        except (TypeError, ValueError):
+            key = None
+        if key not in meta:
+            key = sorted(meta.keys())[0]
+        return sf2, key[0], key[1]
+
+    def _normalize_voice(self, raw, fallback):
+        """A voice-2 block with every field present and valid.
+
+        Falls back to the given voice-1 values, so a preset that has never had a
+        second voice saved still makes sound the moment a second controller appears.
+        """
+        raw = raw if isinstance(raw, dict) else {}
+        sf2, bank, inst = self._valid_patch(
+            raw.get("sf2", fallback["sf2"]),
+            raw.get("bank", fallback["bank"]),
+            raw.get("inst", fallback["inst"]))
+        breath = raw.get("breathmode", fallback["breathmode"])
+        poly = raw.get("poly_mode", fallback["poly_mode"])
+        return {
+            "sf2": sf2, "bank": bank, "inst": inst,
+            "breathmode": bool(breath), "poly_mode": bool(poly),
+        }
+
+    def _voice1_snapshot(self):
+        return {
+            "sf2": self.active_sf2, "bank": self.active_bank,
+            "inst": self.active_inst, "breathmode": self.active_breathmode,
+            "poly_mode": self.active_poly_mode,
+        }
+
+    def load_voice2(self):
+        """Build voice 2 for the loaded preset, seeded from voice 1 when absent."""
+        self.voice2 = self._normalize_voice(
+            self.loaded_preset.get("voice2"), self._voice1_snapshot())
+        self.refresh_voice2_display()
+
+    def refresh_voice2_display(self):
+        meta = self.meta_maps[self.voice2["sf2"] - 1]
+        self.voice2_preset_name = meta.get(
+            (self.voice2["bank"], self.voice2["inst"]),
+            f"{self.voice2['bank']}:{self.voice2['inst']}")
+        index = self.voice2["sf2"] - 1
+        self.voice2_icon = (self.bank_icons[index]
+                            if 0 <= index < len(self.bank_icons) else None)
+
+    def enforce_voice2(self):
+        """Put voice 2 on its own channel.
+
+        The channel needs its own basic channel or noteon on it is silently
+        dropped, exactly as the drum channel does.
+        """
+        if not self.dual_mode or self.voice2 is None:
+            return
+        self.send_command(
+            f"setbasicchannels {VOICE2_CHANNEL} "
+            f"{2 if self.voice2['poly_mode'] else 3} 1")
+        if self.voice2["breathmode"]:
+            self.send_command(f"setbreathmode {VOICE2_CHANNEL} 1 1 0")
+        else:
+            self.send_command(f"setbreathmode {VOICE2_CHANNEL} 0 0 0")
+        self.refresh_voice2_display()
+        self.send_command(f"select {VOICE2_CHANNEL} {self.voice2['sf2']} "
+                          f"{self.voice2['bank']} {self.voice2['inst']}")
+
+    def set_dual_mode(self, enabled):
+        """Enable or release the second voice. Returns True if the state changed."""
+        enabled = bool(enabled)
+        if enabled == self.dual_mode:
+            return False
+        self.dual_mode = enabled
+        print(f"[MIDI] second voice {'enabled' if enabled else 'released'}")
+        if not hasattr(self, "loaded_preset"):
+            # Both controllers were already plugged in at boot, so this ran before
+            # post_boot_init loaded a preset. Record the flag only; the first
+            # handle_preset_change loads and enforces voice 2 on its own.
+            return True
+        if enabled:
+            if self.voice2 is None:
+                self.load_voice2()
+            self.enforce_voice2()
+        else:
+            # Silence anything held on that channel, then replay the preset. Its
+            # resetbasicchannels is what actually releases the channel again.
+            self.panic_kill(VOICE2_CHANNEL)
+            self.editing_voice = 1
+            self.handle_preset_change(self.loaded_preset_num)
+        return True
+
+    def toggle_editing_voice(self):
+        if not self.dual_mode:
+            self.editing_voice = 1
+            return 1
+        self.editing_voice = 2 if self.editing_voice == 1 else 1
+        return self.editing_voice
+
+    def editing_voice2(self):
+        return self.dual_mode and self.editing_voice == 2
+
     def handle_preset_change(self, index):
         self.loaded_preset_num = index
         self.loaded_preset = deepcopy(self.presets[str(self.loaded_preset_num)])
@@ -497,6 +628,10 @@ class Synth:
             self.send_command("setbreathmode 0 0 0 0")
         self.enforce_active_elements()
         self.enforce_fx()
+        # Voice 2 is always tracked so the data is ready the instant a second
+        # controller appears; enforce_voice2 is a no-op unless dual_mode is on.
+        self.load_voice2()
+        self.enforce_voice2()
         self.on_last_preset = self.loaded_preset_num == self.num_presets
 
     def enforce_fx(self):
@@ -534,6 +669,8 @@ class Synth:
             self.presets[str(self.loaded_preset_num)]['breathmode'] = self.active_breathmode
             self.presets[str(self.loaded_preset_num)]['poly_mode'] = self.active_poly_mode
             self.presets[str(self.loaded_preset_num)]['fx'] = deepcopy(self.active_fx_chain)
+            if self.voice2 is not None and self.dual_mode:
+                self.presets[str(self.loaded_preset_num)]['voice2'] = dict(self.voice2)
             self._atomic_write_json(self.presets_file, self.presets)
             self.num_presets = len(self.presets)
             self.presets_maxed_out = self.num_presets == 99
@@ -547,25 +684,37 @@ class Synth:
     def enter_settings_mode(self):
         print("Entering settings mode")
 
-    def increment_program(self):
-        keys = list(self.active_sf2_meta.keys())
-        current_key = (self.active_bank, self.active_inst)
-        index = keys.index(current_key)
-        next_prog = keys[(index + 1) % len(keys)]
-        bank, inst = next_prog
+    @staticmethod
+    def _step_program(meta, bank, inst, delta):
+        """Neighbouring (bank, program) in a soundfont's own ordering."""
+        keys = list(meta.keys())
+        if not keys:
+            return bank, inst
+        try:
+            index = keys.index((bank, inst))
+        except ValueError:
+            index = 0
+        return keys[(index + delta) % len(keys)]
+
+    def _change_program(self, delta):
+        if self.editing_voice2():
+            meta = self.meta_maps[self.voice2["sf2"] - 1]
+            bank, inst = self._step_program(
+                meta, self.voice2["bank"], self.voice2["inst"], delta)
+            self.voice2["bank"], self.voice2["inst"] = bank, inst
+            self.enforce_voice2()
+            return
+        bank, inst = self._step_program(
+            self.active_sf2_meta, self.active_bank, self.active_inst, delta)
         self.active_bank = bank
         self.active_inst = inst
         self.enforce_active_elements()
 
+    def increment_program(self):
+        self._change_program(1)
+
     def decrement_program(self):
-        keys = list(self.active_sf2_meta.keys())
-        current_key = (self.active_bank, self.active_inst)
-        index = keys.index(current_key)
-        next_prog = keys[(index - 1) % len(keys)]
-        bank, inst = next_prog
-        self.active_bank = bank
-        self.active_inst = inst
-        self.enforce_active_elements()
+        self._change_program(-1)
 
     def rotate_sf2(self):
         """Advance to the next soundfont that has usable metadata.
@@ -575,11 +724,19 @@ class Synth:
         raise on keys[0].
         """
         total = len(self.sf2_files)
+        start = self.voice2["sf2"] if self.editing_voice2() else self.active_sf2
         for step in range(1, total + 1):
-            candidate = ((self.active_sf2 - 1 + step) % total) + 1
+            candidate = ((start - 1 + step) % total) + 1
             if self.meta_maps[candidate - 1]:
                 break
         else:
+            return
+        if self.editing_voice2():
+            meta = self.meta_maps[candidate - 1]
+            bank, inst = sorted(meta.keys())[0]
+            self.voice2["sf2"] = candidate
+            self.voice2["bank"], self.voice2["inst"] = bank, inst
+            self.enforce_voice2()
             return
         self.active_sf2 = candidate
         self.active_sf2_meta = self.meta_maps[self.active_sf2 - 1]
@@ -614,6 +771,11 @@ class Synth:
         self.active_fx_chain[self.effects[self.selected_effect_index]]['value'] = new_setting_val
 
     def toggle_breathmode(self):
+        if self.editing_voice2():
+            self.voice2["breathmode"] = not self.voice2["breathmode"]
+            flags = "1 1 0" if self.voice2["breathmode"] else "0 0 0"
+            self.send_command(f"setbreathmode {VOICE2_CHANNEL} {flags}")
+            return
         self.active_breathmode = not self.active_breathmode
         if self.active_breathmode:
             self.send_command("setbreathmode 0 1 1 0")
@@ -621,13 +783,20 @@ class Synth:
             self.send_command("setbreathmode 0 0 0 0")
 
     def toggle_mode(self):
+        if self.editing_voice2():
+            self.voice2["poly_mode"] = not self.voice2["poly_mode"]
+            mode = 2 if self.voice2["poly_mode"] else 3
+            self.send_command(f"setbasicchannels {VOICE2_CHANNEL} {mode} 1")
+            return
         self.active_poly_mode = not self.active_poly_mode
+        # resetbasicchannels clears every channel, so voice 2 has to be re-applied.
         if self.active_poly_mode:
             self.send_command("resetbasicchannels")
             self.send_command("setbasicchannels 0 2 1")
         else:
             self.send_command("resetbasicchannels")
             self.send_command("setbasicchannels 0 3 1")
+        self.enforce_voice2()
 
 
     def save_preset(self):
@@ -637,8 +806,12 @@ class Synth:
         self.presets[str(self.loaded_preset_num)]['breathmode'] = self.active_breathmode
         self.presets[str(self.loaded_preset_num)]['poly_mode'] = self.active_poly_mode
         self.presets[str(self.loaded_preset_num)]['fx'] = deepcopy(self.active_fx_chain)
+        # Only written once a second voice has actually been configured, so presets
+        # saved with one controller stay byte-identical in shape to before.
+        if self.voice2 is not None and self.dual_mode:
+            self.presets[str(self.loaded_preset_num)]['voice2'] = dict(self.voice2)
         self._atomic_write_json(self.presets_file, self.presets)
-        print('Saved preset')
+        print('Saved preset' + (' (both voices)' if self.dual_mode else ''))
 
     def exit_settings_mode(self):
         print('Exiting settings mode')

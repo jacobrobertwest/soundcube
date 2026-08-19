@@ -170,6 +170,24 @@ class ConSignalMessage:
         print(f"[CONT MSG: ({"PRESSED" if not self.release else "RELEASED"}) {self.c_type}, {self.c_button}]")
 
 # -------------------------
+# Dual MIDI controller support
+# -------------------------
+# fluidsynth's ALSA sequencer driver creates one input port per 16 channels, and
+# port N maps onto synth channels N*16..N*16+15. Asking for 32 channels therefore
+# gives a second port whose channel block is 16-31, which is how a second
+# controller gets its own voice regardless of what MIDI channel it transmits on.
+#
+# This is a startup-only setting, so it is always requested - a controller plugged
+# in later has to find the port already there.
+MIDI_CHANNELS = 32
+VOICE1_CHANNEL = 0
+VOICE2_CHANNEL = 16
+
+# How often to look for controllers appearing or disappearing. A /proc read is
+# cheap but there is no reason to do it per frame.
+MIDI_POLL_MS = 1000
+
+# -------------------------
 # Drum performance mode
 # -------------------------
 # Drum kits live in bank 128 by GM convention.

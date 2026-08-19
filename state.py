@@ -147,6 +147,16 @@ class RunState(State):
         self.rect_plus = self.img_plus.get_rect(center=(194,163))
         self.font_drums = SECONDARY_FONT.render("(Y)DRUM", True, 'white')
         self.rect_drums = self.font_drums.get_rect(center=(56,48))
+        # Dual-voice labels. Only drawn when a second controller is connected, so
+        # the single-controller screen is untouched.
+        self.font_v1 = SECONDARY_FONT.render("V1", True, 'white')
+        self.font_v2 = SECONDARY_FONT.render("V2", True, 'white')
+        self.font_v1_dim = SECONDARY_FONT.render("V1", True, (130, 130, 130))
+        self.font_v2_dim = SECONDARY_FONT.render("V2", True, (130, 130, 130))
+        # Shown in settings only; the select screen has no room for it.
+        self.font_swap = SECONDARY_FONT.render("(ZL)VOICE", True, 'white')
+        self.rect_swap = self.font_swap.get_rect(center=(60, 63))
+        self.voice_name_cache = {}
         self.minus_pressed_at = None
 
     def enter(self):
@@ -176,6 +186,8 @@ class RunState(State):
                 self.substate = "SETTINGS"
             elif ConButton.Y in btn:
                 self.enter_drum_mode()
+            elif ConButton.ZL in btn:
+                self.toggle_voice()
             elif ConButton.L in btn:
                 self.synth.toggle_breathmode()
             elif ConButton.Z in btn:
@@ -195,6 +207,17 @@ class RunState(State):
 
     def enter_update_mode(self):
         self.machine.change(UpdateState(self.machine, self.synth, self.display))
+
+    def toggle_voice(self):
+        """Switch which voice LEFT/RIGHT and the settings edits apply to.
+
+        A no-op with one controller connected, so the button is inert rather than
+        putting the UI into a state that isn't shown.
+        """
+        if not self.synth.dual_mode:
+            return
+        self.synth.toggle_editing_voice()
+        self.needs_initial_display = True
 
     def enter_drum_mode(self):
         if not self.synth.has_drum_kits():
@@ -224,6 +247,8 @@ class RunState(State):
             elif ConButton.B in btn:
                 self.synth.exit_settings_mode()
                 self.substate = "SELECT"
+            elif ConButton.ZL in btn:
+                self.toggle_voice()
             elif ConButton.X in btn:
                 self.synth.rotate_sf2()
             elif ConButton.Y in btn:
@@ -264,15 +289,50 @@ class RunState(State):
 
     def prerender(self):
         self.substate_icon_shown = self.img_perf if self.substate == 'SELECT' else self.img_sett
-        self.preset_name_shown = self.synth.active_preset_name
-        self.sf_icon_shown = self.synth.active_icon
-        self.bank_num_shown = self.synth.active_bank
-        self.inst_num_shown = self.synth.active_inst
-        self.breath_mode_shown = self.synth.active_breathmode
-        self.poly_mode_shown = self.synth.active_poly_mode
+        self.dual_shown = self.synth.dual_mode
+        self.editing_voice_shown = self.synth.editing_voice if self.dual_shown else 1
+        if self.dual_shown and self.editing_voice_shown == 2:
+            voice = self.synth.voice2
+            self.preset_name_shown = self.synth.voice2_preset_name
+            self.sf_icon_shown = self.synth.voice2_icon or self.synth.active_icon
+            self.bank_num_shown = voice['bank']
+            self.inst_num_shown = voice['inst']
+            self.breath_mode_shown = voice['breathmode']
+            self.poly_mode_shown = voice['poly_mode']
+        else:
+            self.preset_name_shown = self.synth.active_preset_name
+            self.sf_icon_shown = self.synth.active_icon
+            self.bank_num_shown = self.synth.active_bank
+            self.inst_num_shown = self.synth.active_inst
+            self.breath_mode_shown = self.synth.active_breathmode
+            self.poly_mode_shown = self.synth.active_poly_mode
         self.extender_plus_shown = self.synth.on_last_preset and not self.synth.presets_maxed_out
         self.bg_color_shown = (40, 40, 40, 255) if self.substate == 'SELECT' else (60, 60, 60, 255)
     
+    def _voice_name(self, text, active):
+        key = (text, active)
+        surface = self.voice_name_cache.get(key)
+        if surface is None:
+            surface = SECONDARY_FONT.render(
+                text, True, 'white' if active else (130, 130, 130))
+            self.voice_name_cache[key] = surface
+        return surface
+
+    def render_voice_lines(self, screen):
+        """Both voices, stacked, replacing the single centred name line."""
+        editing = self.editing_voice_shown
+        rows = (
+            (1, self.synth.active_preset_name, HEIGHT / 2 + 34),
+            (2, self.synth.voice2_preset_name, HEIGHT / 2 + 52),
+        )
+        for number, name, y in rows:
+            active = number == editing
+            tag = (self.font_v1 if active else self.font_v1_dim) if number == 1 \
+                else (self.font_v2 if active else self.font_v2_dim)
+            label = self._voice_name(str(name)[:16], active)
+            screen.blit(tag, tag.get_rect(midleft=(WIDTH / 2 - 86, y)))
+            screen.blit(label, label.get_rect(midleft=(WIDTH / 2 - 66, y)))
+
     def render(self, screen, event_happened):
         if self.needs_initial_display or event_happened:
             self.prerender()
@@ -300,10 +360,14 @@ class RunState(State):
             text_preset_num = PRESET_FONT.render(f"{self.synth.loaded_preset_num}", True, color)
             rect_preset_num = text_preset_num.get_rect(center=(WIDTH / 2, HEIGHT / 2))
             screen.blit(text_preset_num, rect_preset_num)
-            # show preset name
-            text_preset_name = PRIMARY_FONT.render(f"{self.preset_name_shown}", True, 'white')
-            rect_preset_name = text_preset_name.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 43))
-            screen.blit(text_preset_name, rect_preset_name)
+            # show preset name. With two controllers both voices are listed, with
+            # the one being edited in white and the other dimmed.
+            if self.dual_shown:
+                self.render_voice_lines(screen)
+            else:
+                text_preset_name = PRIMARY_FONT.render(f"{self.preset_name_shown}", True, 'white')
+                rect_preset_name = text_preset_name.get_rect(center=(WIDTH / 2, HEIGHT / 2 + 43))
+                screen.blit(text_preset_name, rect_preset_name)
             # show preset info line 1
             text_preset_info_1 = SECONDARY_FONT.render(f"BANK {self.bank_num_shown}", True, 'white')
             rect_preset_info_1 = text_preset_info_1.get_rect(midright=(WIDTH / 2 - 10, HEIGHT / 2 + 75))
@@ -346,6 +410,8 @@ class RunState(State):
                 text_settings_swap = SECONDARY_FONT.render("(B) BACK", True, 'white')
                 rect_settings_swap = text_settings_swap.get_rect(center=(55,45))
                 screen.blit(text_settings_swap,rect_settings_swap)
+                if self.dual_shown:
+                    screen.blit(self.font_swap, self.rect_swap)
                 text_sf2_change = SECONDARY_FONT.render("(X)", True, 'white')
                 rect_sf2_change = text_sf2_change.get_rect(center=(181, 196))
                 screen.blit(text_sf2_change, rect_sf2_change)
