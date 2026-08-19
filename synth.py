@@ -223,7 +223,7 @@ class Synth:
         return {
             "1": {
                 "sf2": sf2_index, "bank": bank, "inst": inst,
-                "breathmode": False, "poly_mode": True, "fx": fx,
+                "breathmode": False, "fx": fx,
             }
         }
 
@@ -523,17 +523,15 @@ class Synth:
             raw.get("bank", fallback["bank"]),
             raw.get("inst", fallback["inst"]))
         breath = raw.get("breathmode", fallback["breathmode"])
-        poly = raw.get("poly_mode", fallback["poly_mode"])
         return {
             "sf2": sf2, "bank": bank, "inst": inst,
-            "breathmode": bool(breath), "poly_mode": bool(poly),
+            "breathmode": bool(breath),
         }
 
     def _voice1_snapshot(self):
         return {
             "sf2": self.active_sf2, "bank": self.active_bank,
             "inst": self.active_inst, "breathmode": self.active_breathmode,
-            "poly_mode": self.active_poly_mode,
         }
 
     def load_voice2(self):
@@ -559,9 +557,7 @@ class Synth:
         """
         if not self.dual_mode or self.voice2 is None:
             return
-        self.send_command(
-            f"setbasicchannels {VOICE2_CHANNEL} "
-            f"{2 if self.voice2['poly_mode'] else 3} 1")
+        self.send_command(f"setbasicchannels {VOICE2_CHANNEL} 2 1")
         if self.voice2["breathmode"]:
             self.send_command(f"setbreathmode {VOICE2_CHANNEL} 1 1 0")
         else:
@@ -611,17 +607,14 @@ class Synth:
         self.active_bank = self.loaded_preset["bank"]
         self.active_inst = self.loaded_preset["inst"]
         self.active_breathmode = self.loaded_preset["breathmode"]
-        self.active_poly_mode = self.loaded_preset["poly_mode"]
         # Normalise rather than only filling in a wholly absent 'fx' block: a
         # partial or hand-edited one used to raise inside render().
         self.active_fx_chain = self._normalize_fx(self.loaded_preset.get('fx'))
         self.loaded_preset['fx'] = deepcopy(self.active_fx_chain)
-        if self.active_poly_mode:
-            self.send_command("resetbasicchannels")
-            self.send_command("setbasicchannels 0 2 1")
-        else:
-            self.send_command("resetbasicchannels")
-            self.send_command("setbasicchannels 0 3 1")
+        # Always polyphonic. Mono (basic channel mode 3) steals each new note from
+        # the previous one, which sounds unnatural on these patches.
+        self.send_command("resetbasicchannels")
+        self.send_command("setbasicchannels 0 2 1")
         if self.active_breathmode:
             self.send_command("setbreathmode 0 1 1 0")
         else:
@@ -667,7 +660,7 @@ class Synth:
             self.presets[str(self.loaded_preset_num)]['bank'] = self.active_bank
             self.presets[str(self.loaded_preset_num)]['inst'] = self.active_inst
             self.presets[str(self.loaded_preset_num)]['breathmode'] = self.active_breathmode
-            self.presets[str(self.loaded_preset_num)]['poly_mode'] = self.active_poly_mode
+            self.presets[str(self.loaded_preset_num)].pop('poly_mode', None)
             self.presets[str(self.loaded_preset_num)]['fx'] = deepcopy(self.active_fx_chain)
             if self.voice2 is not None and self.dual_mode:
                 self.presets[str(self.loaded_preset_num)]['voice2'] = dict(self.voice2)
@@ -782,29 +775,13 @@ class Synth:
         else:
             self.send_command("setbreathmode 0 0 0 0")
 
-    def toggle_mode(self):
-        if self.editing_voice2():
-            self.voice2["poly_mode"] = not self.voice2["poly_mode"]
-            mode = 2 if self.voice2["poly_mode"] else 3
-            self.send_command(f"setbasicchannels {VOICE2_CHANNEL} {mode} 1")
-            return
-        self.active_poly_mode = not self.active_poly_mode
-        # resetbasicchannels clears every channel, so voice 2 has to be re-applied.
-        if self.active_poly_mode:
-            self.send_command("resetbasicchannels")
-            self.send_command("setbasicchannels 0 2 1")
-        else:
-            self.send_command("resetbasicchannels")
-            self.send_command("setbasicchannels 0 3 1")
-        self.enforce_voice2()
-
 
     def save_preset(self):
         self.presets[str(self.loaded_preset_num)]['sf2'] = self.active_sf2
         self.presets[str(self.loaded_preset_num)]['bank'] = self.active_bank
         self.presets[str(self.loaded_preset_num)]['inst'] = self.active_inst
         self.presets[str(self.loaded_preset_num)]['breathmode'] = self.active_breathmode
-        self.presets[str(self.loaded_preset_num)]['poly_mode'] = self.active_poly_mode
+        self.presets[str(self.loaded_preset_num)].pop('poly_mode', None)
         self.presets[str(self.loaded_preset_num)]['fx'] = deepcopy(self.active_fx_chain)
         # Only written once a second voice has actually been configured, so presets
         # saved with one controller stay byte-identical in shape to before.

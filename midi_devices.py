@@ -50,10 +50,26 @@ class MidiPort:
 
 
 def fake_device_count():
-    """Test/dev override. Returns None when unset."""
+    """Test/dev override. Returns None when unset.
+
+    The value is either a count, or a path to a file containing one. The file form
+    lets the count change while the app is running, so plugging and unplugging a
+    second controller can be simulated live:
+
+        SOUNDCUBE_FAKE_MIDI_DEVICES=/tmp/midi_count python3 main.py
+        echo 2 > /tmp/midi_count     # second controller appears
+        echo 1 > /tmp/midi_count     # and goes away again
+    """
     raw = os.getenv("SOUNDCUBE_FAKE_MIDI_DEVICES")
     if raw is None:
         return None
+    raw = raw.strip()
+    if not raw.isdigit():
+        try:
+            with open(raw, "r", encoding="utf-8") as f:
+                raw = f.read().strip()
+        except OSError:
+            return None
     try:
         return max(0, int(raw))
     except ValueError:

@@ -128,15 +128,11 @@ class RunState(State):
         self.img_sett = pygame.image.load('files/sett.png').convert_alpha()
         self.img_tri = pygame.image.load('files/tri.png').convert_alpha()
         self.img_breath = pygame.image.load('files/breath.png').convert_alpha()
-        self.rect_breath = self.img_breath.get_rect(center=(45,72))
+        # Breath sits where the POLY/MONO readout used to, now that everything is
+        # always polyphonic.
+        self.rect_breath = self.img_breath.get_rect(center=(45,88))
         self.font_breath = SECONDARY_FONT.render("(L)", True, 'white')
-        self.rect_font_breath = self.font_breath.get_rect(center=(25,72))
-        self.font_mono = SECONDARY_FONT.render("MONO", True, 'white')
-        self.font_poly = SECONDARY_FONT.render("POLY", True, 'white')
-        self.font_mono_rect = self.font_mono.get_rect(center=(45,92))
-        self.font_poly_rect = self.font_poly.get_rect(center=(45,92))
-        self.font_home = UNICODE_FONT.render("(⌂)", True, 'white')
-        self.rect_home = self.font_home.get_rect(center=(20,90))
+        self.rect_font_breath = self.font_breath.get_rect(center=(25,88))
         self.imgs_tri = {
             "up": self.img_tri,
             "down": pygame.transform.flip(self.img_tri, flip_x=True, flip_y=False),
@@ -259,8 +255,6 @@ class RunState(State):
                 self.substate = "SELECT"
             elif ConButton.L in btn:
                 self.synth.toggle_breathmode()
-            elif ConButton.HOME in btn:
-                self.synth.toggle_mode()
             elif ConButton.Z in btn:
                 self.synth.panic_kill()
             elif ConButton.MINUS in btn or ConButton.SCRSH in btn:
@@ -298,14 +292,12 @@ class RunState(State):
             self.bank_num_shown = voice['bank']
             self.inst_num_shown = voice['inst']
             self.breath_mode_shown = voice['breathmode']
-            self.poly_mode_shown = voice['poly_mode']
         else:
             self.preset_name_shown = self.synth.active_preset_name
             self.sf_icon_shown = self.synth.active_icon
             self.bank_num_shown = self.synth.active_bank
             self.inst_num_shown = self.synth.active_inst
             self.breath_mode_shown = self.synth.active_breathmode
-            self.poly_mode_shown = self.synth.active_poly_mode
         self.extender_plus_shown = self.synth.on_last_preset and not self.synth.presets_maxed_out
         self.bg_color_shown = (40, 40, 40, 255) if self.substate == 'SELECT' else (60, 60, 60, 255)
     
@@ -379,10 +371,6 @@ class RunState(State):
             # show icon 
             if self.breath_mode_shown:
                 screen.blit(self.img_breath, self.rect_breath)
-            if self.poly_mode_shown:
-                screen.blit(self.font_poly, self.font_poly_rect)
-            else:
-                screen.blit(self.font_mono, self.font_mono_rect)
             game_icon = self.sf_icon_shown
             rect_game_icon = game_icon.get_rect(center = (WIDTH / 2 + 30, HEIGHT / 2 + 85))
             screen.blit(game_icon, rect_game_icon)
@@ -399,7 +387,6 @@ class RunState(State):
                 if self.extender_plus_shown:
                     screen.blit(self.img_plus, self.rect_plus)
             elif self.substate == 'SETTINGS':
-                screen.blit(self.font_home, self.rect_home)
                 left_arrow_rect = left_arrow.get_rect(center=(WIDTH / 2 - 75, HEIGHT / 2 + 43))
                 screen.blit(left_arrow, left_arrow_rect)
                 right_arrow_rect = right_arrow.get_rect(center=(WIDTH / 2 + 75, HEIGHT / 2 + 43))
