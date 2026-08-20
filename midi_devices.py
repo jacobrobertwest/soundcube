@@ -213,7 +213,7 @@ def _note(message):
         print(f"[MIDI] {message}")
 
 
-def ensure_devices_routed():
+def ensure_devices_routed(on_change=None):
     """Pin each controller to exactly one fluidsynth input port.
 
     autoconnect attaches every controller to *every* input port fluidsynth
@@ -229,6 +229,11 @@ def ensure_devices_routed():
     ports a moment after launch, so a single attempt at boot can run before port 1
     exists, and autoconnect re-attaches devices when one is plugged in later.
     Verification is a /proc read, so aconnect only runs when the wiring is wrong.
+
+    on_change, if given, is called once after any link is added or removed. Removing
+    a link orphans anything the device was holding through it: the note-on reached
+    that channel but the note-off never will, so it sounds forever. The caller uses
+    this to silence the affected channels.
 
     Returns True when every controller is correctly pinned, False if something
     could not be fixed, None when not applicable.
@@ -250,6 +255,7 @@ def ensure_devices_routed():
 
     fluid_addresses = {t.address for t in targets}
     ok = True
+    changed = False
     for index, device in enumerate(devices):
         # Controller N gets port N; extras fall back to port 0, i.e. voice 1.
         port_index = index if index < len(targets) else 0
@@ -260,14 +266,20 @@ def ensure_devices_routed():
         for stray in sorted((current & fluid_addresses) - {wanted}):
             _note(f"unlinking {device.client_name!r} ({device.address}) from "
                   f"{stray}; it should only feed {wanted}")
-            if not _aconnect(["-d", device.address, stray]):
+            if _aconnect(["-d", device.address, stray]):
+                changed = True
+            else:
                 ok = False
         if wanted not in current:
             _note(f"linking {device.client_name!r} ({device.address}) -> {wanted} "
                   f"(voice {voice})")
-            if not _aconnect([device.address, wanted]):
+            if _aconnect([device.address, wanted]):
+                changed = True
+            else:
                 ok = False
 
+    if changed and on_change is not None:
+        on_change()
     if ok:
         summary = ", ".join(
             f"{d.client_name}->{targets[i if i < len(targets) else 0].address}"

@@ -93,7 +93,10 @@ def main(soundcube_mode):
             # to every fluidsynth port, which would make controller 1 play both
             # voices at once.
             if connected >= 1:
-                midi_devices.ensure_devices_routed()
+                # Unlinking a device from a port orphans whatever it was holding
+                # through that link - the note-off can never arrive - so clear every
+                # channel we drive whenever the wiring actually changes.
+                midi_devices.ensure_devices_routed(on_change=synth.panic_kill)
             if connected != midi_device_count:
                 midi_device_count = connected
                 print(f"[MIDI] {connected} controller(s) connected")

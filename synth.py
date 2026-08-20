@@ -554,8 +554,14 @@ class Synth:
 
         The channel needs its own basic channel or noteon on it is silently
         dropped, exactly as the drum channel does.
+
+        Applied whether or not a second controller is connected. Leaving the channel
+        disabled meant that a controller which ended up on fluidsynth's port 1 -
+        after a re-plug, or in the second between polls - played into a dead channel
+        and made no sound at all. An idle configured channel costs nothing, and an
+        audible wrong voice beats silence.
         """
-        if not self.dual_mode or self.voice2 is None:
+        if self.voice2 is None:
             return
         self.send_command(f"setbasicchannels {VOICE2_CHANNEL} 2 1")
         if self.voice2["breathmode"]:
@@ -578,16 +584,15 @@ class Synth:
             # post_boot_init loaded a preset. Record the flag only; the first
             # handle_preset_change loads and enforces voice 2 on its own.
             return True
-        if enabled:
-            if self.voice2 is None:
-                self.load_voice2()
-            self.enforce_voice2()
-        else:
-            # Silence anything held on that channel, then replay the preset. Its
-            # resetbasicchannels is what actually releases the channel again.
+        if self.voice2 is None:
+            self.load_voice2()
+        self.enforce_voice2()
+        if not enabled:
+            # Silence anything the departing controller left ringing, and stop
+            # editing a voice the UI no longer shows. The channel itself stays
+            # configured so a stray connection to port 1 is audible, not silent.
             self.panic_kill(VOICE2_CHANNEL)
             self.editing_voice = 1
-            self.handle_preset_change(self.loaded_preset_num)
         return True
 
     def toggle_editing_voice(self):
@@ -668,10 +673,22 @@ class Synth:
             self.num_presets = len(self.presets)
             self.presets_maxed_out = self.num_presets == 99
 
-    def panic_kill(self, channel=0):
-        # control change | channel | cc123 (kill all notes) | value (not used for this CC, but required)
-        self.send_command(f"cc {channel} 121 0")
-        self.send_command(f"cc {channel} 123 0")
+    # Every channel this app can put a note on.
+    MANAGED_CHANNELS = (VOICE1_CHANNEL, DRUM_CHANNEL, VOICE2_CHANNEL)
+
+    def panic_kill(self, channel=None):
+        """Kill sounding notes. With no channel, silence everything we drive.
+
+        The Z button is the escape hatch for a stuck note, so it has to reach voice
+        2 and the drum channel as well. When this only addressed channel 0, a note
+        left hanging on channel 16 - which happens if a controller is unlinked from
+        a port between its note-on and note-off - could not be cleared at all.
+        """
+        channels = self.MANAGED_CHANNELS if channel is None else (channel,)
+        for chan in channels:
+            # control change | channel | cc121 reset controllers, cc123 all notes off
+            self.send_command(f"cc {chan} 121 0")
+            self.send_command(f"cc {chan} 123 0")
 
     # --- SETTINGS MODE -----
     def enter_settings_mode(self):
