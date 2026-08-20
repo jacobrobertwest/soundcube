@@ -213,72 +213,67 @@ def _note(message):
         print(f"[MIDI] {message}")
 
 
-def ensure_second_device_routed():
-    """Keep controller 2 feeding fluidsynth's port 1, re-checking on every poll.
+def ensure_devices_routed():
+    """Pin each controller to exactly one fluidsynth input port.
 
-    Deliberately re-asserted rather than done once. fluidsynth registers its ALSA
-    ports a moment after launch, so the first attempt at boot can easily run before
-    port 1 exists; a single shot would then leave both controllers on port 0
-    forever, which is exactly one voice playing twice. autoconnect can also
-    re-attach a device to port 0 later.
+    autoconnect attaches every controller to *every* input port fluidsynth
+    exposes, so controller 1 ends up feeding port 1 as well and plays both voices
+    at once. Each controller therefore needs its stray connections removed, not
+    just the second one moved.
 
-    Verification is a /proc read, so aconnect only runs when something is wrong.
-    Returns True when routed, False when it could not be, None when not applicable.
+    Controller N gets port N; any beyond the number of ports fall back to port 0.
+    Only connections to fluidsynth are touched - anything else a user has wired up
+    is left alone.
+
+    Re-asserted on every poll rather than done once: fluidsynth registers its ALSA
+    ports a moment after launch, so a single attempt at boot can run before port 1
+    exists, and autoconnect re-attaches devices when one is plugged in later.
+    Verification is a /proc read, so aconnect only runs when the wiring is wrong.
+
+    Returns True when every controller is correctly pinned, False if something
+    could not be fixed, None when not applicable.
     """
     if fake_device_count() is not None:
         return None
     text = _read_clients_text()
     devices = input_ports(text)
-    if len(devices) < 2:
-        return None
     targets = fluid_ports(text)
-    if len(targets) < 2:
-        _note(f"fluidsynth exposes {len(targets)} input port(s); waiting for a "
-              "second one (needs synth.midi-channels=32 and the alsa_seq driver)")
+    if not devices:
+        return None
+    if not targets:
+        _note("fluidsynth has no input ports yet; waiting")
+        return False
+    if len(devices) >= 2 and len(targets) < 2:
+        _note(f"fluidsynth exposes {len(targets)} input port(s); a second voice "
+              "needs 2 (synth.midi-channels=32 with the alsa_seq driver)")
         return False
 
-    device, port0, port1 = devices[1], targets[0], targets[1]
-    if device.connecting_to == [port1.address]:
-        _note(f"controller 2 {device.client_name!r} -> {port1.address} (voice 2)")
-        return True
+    fluid_addresses = {t.address for t in targets}
+    ok = True
+    for index, device in enumerate(devices):
+        # Controller N gets port N; extras fall back to port 0, i.e. voice 1.
+        port_index = index if index < len(targets) else 0
+        wanted = targets[port_index].address
+        voice = port_index + 1
+        current = set(device.connecting_to)
+        # Extra links to fluidsynth make this device play more than one voice.
+        for stray in sorted((current & fluid_addresses) - {wanted}):
+            _note(f"unlinking {device.client_name!r} ({device.address}) from "
+                  f"{stray}; it should only feed {wanted}")
+            if not _aconnect(["-d", device.address, stray]):
+                ok = False
+        if wanted not in current:
+            _note(f"linking {device.client_name!r} ({device.address}) -> {wanted} "
+                  f"(voice {voice})")
+            if not _aconnect([device.address, wanted]):
+                ok = False
 
-    _note(f"routing controller 2 {device.client_name!r} ({device.address}) "
-          f"from {device.connecting_to or 'nothing'} to {port1.address}")
-    if port0.address in device.connecting_to:
-        _aconnect(["-d", device.address, port0.address])
-    if not _aconnect([device.address, port1.address]):
-        _note(f"could not route {device.client_name!r}; it stays on voice 1")
-        return False
-    return True
-
-
-def route_second_device():
-    """Put the second controller on fluidsynth's port 1 (synth channels 16-31).
-
-    autoconnect has already wired every device to port 0, so the second one is
-    disconnected from port 0 first. Returns the MidiPort that was moved, or None.
-
-    Failing here is not fatal: the device simply stays on port 0 and plays voice 1,
-    which is exactly the current single-voice behaviour.
-    """
-    if fake_device_count() is not None:
-        return None
-    devices = input_ports()
-    targets = fluid_ports()
-    if len(devices) < 2:
-        return None
-    if len(targets) < 2:
-        print(f"[MIDI] fluidsynth exposes {len(targets)} input port(s); "
-              "need 2 for a second voice (is synth.midi-channels=32 set?)")
-        return None
-    device, port0, port1 = devices[1], targets[0], targets[1]
-    print(f"[MIDI] routing {device.client_name!r} ({device.address}) "
-          f"to fluidsynth port {port1.address} for voice 2")
-    _aconnect(["-d", device.address, port0.address])
-    if not _aconnect([device.address, port1.address]):
-        print("[MIDI] second voice routing failed; that device stays on voice 1")
-        return None
-    return device
+    if ok:
+        summary = ", ".join(
+            f"{d.client_name}->{targets[i if i < len(targets) else 0].address}"
+            for i, d in enumerate(devices))
+        _note(f"routing settled: {summary}")
+    return ok
 
 
 def describe():

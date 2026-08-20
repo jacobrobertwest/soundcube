@@ -89,8 +89,11 @@ def main(soundcube_mode):
             # Re-asserted every poll, not just on a change: fluidsynth's ALSA ports
             # appear a moment after launch, so a single attempt at boot can run
             # before there is anywhere to route the second controller to.
-            if connected >= 2:
-                midi_devices.ensure_second_device_routed()
+            # Every controller, not just the second: autoconnect links each device
+            # to every fluidsynth port, which would make controller 1 play both
+            # voices at once.
+            if connected >= 1:
+                midi_devices.ensure_devices_routed()
             if connected != midi_device_count:
                 midi_device_count = connected
                 print(f"[MIDI] {connected} controller(s) connected")
