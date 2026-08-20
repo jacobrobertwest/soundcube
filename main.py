@@ -86,11 +86,14 @@ def main(soundcube_mode):
         if now - last_midi_poll >= MIDI_POLL_MS:
             last_midi_poll = now
             connected = midi_devices.device_count()
+            # Re-asserted every poll, not just on a change: fluidsynth's ALSA ports
+            # appear a moment after launch, so a single attempt at boot can run
+            # before there is anywhere to route the second controller to.
+            if connected >= 2:
+                midi_devices.ensure_second_device_routed()
             if connected != midi_device_count:
                 midi_device_count = connected
                 print(f"[MIDI] {connected} controller(s) connected")
-                if connected >= 2:
-                    midi_devices.route_second_device()
                 if synth.set_dual_mode(connected >= 2):
                     # The voice readout appears or disappears, so force a repaint.
                     if hasattr(machine.state, 'needs_initial_display'):

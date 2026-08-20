@@ -25,15 +25,18 @@ IGNORED_CLIENT_NAMES = ("system", "midi through", "announce", "timer")
 
 _CLIENT_RE = re.compile(r'^Client\s+(\d+)\s*:\s*"([^"]*)"\s*\[([^\]]*)\]')
 _PORT_RE = re.compile(r'^\s+Port\s+(\d+)\s*:\s*"([^"]*)"\s*\(([^)]*)\)')
+_ADDR_RE = re.compile(r'^\d+:\d+$')
 
 
 class MidiPort:
-    def __init__(self, client, port, client_name, port_name, flags):
+    def __init__(self, client, port, client_name, port_name, flags,
+                 connecting_to=None):
         self.client = client
         self.port = port
         self.client_name = client_name
         self.port_name = port_name
         self.flags = flags
+        self.connecting_to = list(connecting_to or [])
 
     @property
     def address(self):
@@ -107,7 +110,17 @@ def parse_clients(text):
                 "port": int(port_match.group(1)),
                 "name": port_match.group(2).strip(),
                 "flags": port_match.group(3).strip(),
+                "connecting_to": [],
             })
+            continue
+        # "    Connecting To: 128:0, 128:1" under the port it belongs to
+        stripped = line.strip()
+        if stripped.lower().startswith("connecting to:") and clients[current]["ports"]:
+            targets = stripped.split(":", 1)[1]
+            for chunk in targets.split(","):
+                chunk = chunk.strip()
+                if _ADDR_RE.match(chunk):
+                    clients[current]["ports"][-1]["connecting_to"].append(chunk)
     return clients
 
 
@@ -118,8 +131,10 @@ def _is_controller(info):
         return False
     if "fluid" in name:
         return False
-    # User clients are software (fluidsynth, sequencers). Controllers are Kernel.
-    if info["type"].lower() != "kernel":
+    # User clients are software (fluidsynth, sequencers); controllers are Kernel.
+    # Real hardware reports "Kernel,Card=1" rather than a bare "Kernel", so this
+    # has to be a substring test - an exact match silently skipped every USB device.
+    if "kernel" not in info["type"].lower():
         return False
     # Needs a readable port, i.e. something we can read events *from*.
     return any("R" in port["flags"] for port in info["ports"])
@@ -140,7 +155,8 @@ def input_ports(text=None):
         for port in info["ports"]:
             if "R" in port["flags"]:
                 ports.append(MidiPort(client_id, port["port"], info["name"],
-                                      port["name"], port["flags"]))
+                                      port["name"], port["flags"],
+                                      port.get("connecting_to")))
                 break   # one port per device is enough
     return ports
 
@@ -155,7 +171,8 @@ def fluid_ports(text=None):
         info = clients[client_id]
         if "fluid" not in info["name"].lower():
             continue
-        found = [MidiPort(client_id, p["port"], info["name"], p["name"], p["flags"])
+        found = [MidiPort(client_id, p["port"], info["name"], p["name"], p["flags"],
+                          p.get("connecting_to"))
                  for p in sorted(info["ports"], key=lambda p: p["port"])
                  if "W" in p["flags"]]
         if found:
@@ -181,6 +198,56 @@ def _aconnect(args):
     if result.returncode != 0:
         message = (result.stderr or result.stdout or "").strip()
         print(f"[MIDI] aconnect {' '.join(args)} failed: {message}")
+        return False
+    return True
+
+
+_last_note = None
+
+
+def _note(message):
+    """Log only when the situation changes; this runs on every poll."""
+    global _last_note
+    if message != _last_note:
+        _last_note = message
+        print(f"[MIDI] {message}")
+
+
+def ensure_second_device_routed():
+    """Keep controller 2 feeding fluidsynth's port 1, re-checking on every poll.
+
+    Deliberately re-asserted rather than done once. fluidsynth registers its ALSA
+    ports a moment after launch, so the first attempt at boot can easily run before
+    port 1 exists; a single shot would then leave both controllers on port 0
+    forever, which is exactly one voice playing twice. autoconnect can also
+    re-attach a device to port 0 later.
+
+    Verification is a /proc read, so aconnect only runs when something is wrong.
+    Returns True when routed, False when it could not be, None when not applicable.
+    """
+    if fake_device_count() is not None:
+        return None
+    text = _read_clients_text()
+    devices = input_ports(text)
+    if len(devices) < 2:
+        return None
+    targets = fluid_ports(text)
+    if len(targets) < 2:
+        _note(f"fluidsynth exposes {len(targets)} input port(s); waiting for a "
+              "second one (needs synth.midi-channels=32 and the alsa_seq driver)")
+        return False
+
+    device, port0, port1 = devices[1], targets[0], targets[1]
+    if device.connecting_to == [port1.address]:
+        _note(f"controller 2 {device.client_name!r} -> {port1.address} (voice 2)")
+        return True
+
+    _note(f"routing controller 2 {device.client_name!r} ({device.address}) "
+          f"from {device.connecting_to or 'nothing'} to {port1.address}")
+    if port0.address in device.connecting_to:
+        _aconnect(["-d", device.address, port0.address])
+    if not _aconnect([device.address, port1.address]):
+        _note(f"could not route {device.client_name!r}; it stays on voice 1")
         return False
     return True
 
